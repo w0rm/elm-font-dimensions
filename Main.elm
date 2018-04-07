@@ -8,10 +8,9 @@ import Html.Attributes as HtmlAttributes
 import OpenSolid.Svg as Svg
 import OpenSolid.Point3d as Point3d exposing (Point3d)
 import OpenSolid.LineSegment3d as LineSegment3d exposing (LineSegment3d)
+import OpenSolid.LineSegment2d as LineSegment2d exposing (LineSegment2d)
 import OpenSolid.BoundingBox3d as BoundingBox3d exposing (BoundingBox3d)
 import OpenSolid.Direction2d as Direction2d
-import OpenSolid.Direction3d as Direction3d exposing (Direction3d)
-import OpenSolid.Vector3d as Vector3d exposing (Vector3d)
 import OpenSolid.SketchPlane3d as SketchPlane3d exposing (SketchPlane3d)
 import OpenSolid.Frame2d as Frame2d exposing (Frame2d)
 import OpenSolid.Point2d as Point2d exposing (Point2d)
@@ -47,7 +46,7 @@ type alias Model =
     , structure : Structure
     , dimensions : Float
     , values : Array Float
-    , perspective : Bool
+    , perspective : Float
     }
 
 
@@ -68,7 +67,7 @@ init =
           , structure = Structure.structure values 0
           , dimensions = 0
           , values = values
-          , perspective = False
+          , perspective = 0
           }
         , Task.perform Resize Window.size
         )
@@ -82,7 +81,7 @@ type Msg
     | MouseMove Mouse.Position
     | ChangeDimensions Float
     | ChangeValue Int Float
-    | ChangePerspective Bool
+    | ChangePerspective Float
     | Noop
 
 
@@ -165,9 +164,16 @@ subscriptions model =
 viewStructure : Model -> List (Svg Msg)
 viewStructure model =
     let
+        distance =
+            10 - model.perspective * 0.9
+
+        focalPoint =
+            BoundingBox3d.centroid model.structure.hull
+
         eyePoint =
             model.sketchPlane
-                |> SketchPlane3d.offsetBy -2
+                |> SketchPlane3d.moveTo focalPoint
+                |> SketchPlane3d.offsetBy -distance
                 |> SketchPlane3d.originPoint
 
         upDirection =
@@ -176,49 +182,41 @@ viewStructure model =
         viewpoint =
             Viewpoint.lookAt
                 { eyePoint = eyePoint
-                , focalPoint = Point3d.origin
+                , focalPoint = focalPoint
                 , upDirection = upDirection
                 }
 
         camera =
-            if model.perspective then
-                Camera.perspective
-                    { viewpoint = viewpoint
-                    , verticalFieldOfView = degrees 30
-                    , nearClipDistance = 0.1
-                    , farClipDistance = 1000
-                    , screenWidth = model.width
-                    , screenHeight = model.height
-                    }
-            else
-                Camera.orthographic
-                    { viewpoint = viewpoint
-                    , viewportHeight = 1
-                    , nearClipDistance = 0.1
-                    , farClipDistance = 1000
-                    , screenWidth = model.width
-                    , screenHeight = model.height
-                    }
+            Camera.perspective
+                { viewpoint = viewpoint
+                , verticalFieldOfView = degrees 30
+                , nearClipDistance = 0.1
+                , farClipDistance = 1000
+                , screenWidth = model.width
+                , screenHeight = model.height
+                }
 
         ( x, y, z ) =
             BoundingBox3d.dimensions model.structure.hull
 
-        scale =
+        scale3d =
             1 / (List.maximum [ x, y, z, 1 ] |> Maybe.withDefault 1) / 1.4
 
-        offset =
-            Vector3d.fromComponents
-                ( -(BoundingBox3d.midX model.structure.hull)
-                , -(BoundingBox3d.midY model.structure.hull)
-                , -(BoundingBox3d.midZ model.structure.hull)
-                )
+        scale2d =
+            max distance 0.1 * tan (degrees 15) * 2
+
+        screenCenter =
+            Point2d.fromCoordinates ( model.width / 2, model.height / 2 )
+
+        strokeWidth =
+            SvgAttributes.strokeWidth (toString (max 1 (8 - model.dimensions)))
 
         mapLine { number, line } =
-            Svg.lineSegment2d [ SvgAttributes.stroke (color number), SvgAttributes.strokeWidth (toString (max 1 (8 - model.dimensions))) ]
+            Svg.lineSegment2d [ SvgAttributes.stroke (color number), strokeWidth ]
                 (line
-                    |> LineSegment3d.translateBy offset
-                    |> LineSegment3d.scaleAbout (Point3d.fromCoordinates ( 0, 0, 0 )) scale
+                    |> LineSegment3d.scaleAbout focalPoint scale3d
                     |> LineSegment3d.toScreenSpace camera
+                    |> LineSegment2d.scaleAbout screenCenter scale2d
                 )
 
         mapCoordinate { number, line } =
@@ -226,21 +224,21 @@ viewStructure model =
                 [ SvgAttributes.stroke (color number)
                 , SvgAttributes.strokeOpacity "0.5"
                 , SvgAttributes.strokeDasharray "10 10"
-                , SvgAttributes.strokeWidth (toString (max 1 (8 - model.dimensions)))
+                , strokeWidth
                 ]
                 (line
-                    |> LineSegment3d.translateBy offset
-                    |> LineSegment3d.scaleAbout (Point3d.fromCoordinates ( 0, 0, 0 )) scale
+                    |> LineSegment3d.scaleAbout focalPoint scale3d
                     |> LineSegment3d.toScreenSpace camera
+                    |> LineSegment2d.scaleAbout screenCenter scale2d
                 )
 
         mapPoint { number, point } =
             Svg.point2dWith { radius = 10 - model.dimensions }
                 [ SvgAttributes.fill (color number) ]
                 (point
-                    |> Point3d.translateBy offset
-                    |> Point3d.scaleAbout (Point3d.fromCoordinates ( 0, 0, 0 )) scale
+                    |> Point3d.scaleAbout focalPoint scale3d
                     |> Point3d.toScreenSpace camera
+                    |> Point2d.scaleAbout screenCenter scale2d
                 )
 
         mapValue point =
@@ -250,9 +248,9 @@ viewStructure model =
                 , SvgAttributes.strokeWidth "2"
                 ]
                 (point
-                    |> Point3d.translateBy offset
-                    |> Point3d.scaleAbout (Point3d.fromCoordinates ( 0, 0, 0 )) scale
+                    |> Point3d.scaleAbout focalPoint scale3d
                     |> Point3d.toScreenSpace camera
+                    |> Point2d.scaleAbout screenCenter scale2d
                 )
     in
         List.concat
@@ -332,17 +330,21 @@ view model =
                     ]
                     []
                 , Html.label
-                    [ HtmlAttributes.style [ ( "display", "block" ), ( "margin", "0 0 15px" ) ]
+                    [ HtmlAttributes.for "perspective"
+                    , HtmlAttributes.style [ ( "display", "block" ) ]
                     ]
-                    [ Html.input
-                        [ HtmlAttributes.type_ "checkbox"
-                        , HtmlAttributes.checked model.perspective
-                        , Events.onCheck ChangePerspective
-                        , HtmlAttributes.style [ ( "margin", "0 10px 0 0" ) ]
-                        ]
-                        []
-                    , Html.text "Perspective projection"
+                    [ Html.text "Perspective"
                     ]
+                , Html.input
+                    [ HtmlAttributes.id "perspective"
+                    , HtmlAttributes.type_ "range"
+                    , HtmlAttributes.value (toString model.perspective)
+                    , Events.onInput (String.toFloat >> Result.withDefault 0 >> ChangePerspective)
+                    , HtmlAttributes.min "0"
+                    , HtmlAttributes.max "10"
+                    , HtmlAttributes.step "0.5"
+                    ]
+                    []
                 , Html.div
                     []
                     (List.indexedMap
@@ -373,7 +375,8 @@ viewLetter valuesAndScales =
                 , ( "text-rendering", "optimizeLegibility" )
                 , ( "font-variation-settings", fontVariationSettings )
                 , ( "display", "block" )
-                , ( "width", "50%" )
+                , ( "width", "20%" )
+                , ( "min-width", "300px" )
                 , ( "height", "300px" )
                 , ( "outline", "none" )
                 , ( "padding", "0 50px" )
