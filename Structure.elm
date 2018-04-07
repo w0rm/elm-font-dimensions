@@ -55,7 +55,7 @@ type alias Structure =
     , lines : List Line
     , value : Point3d
     , coordinates : List Line
-    , hull : BoundingBox3d
+    , focalPoint : Point3d
     }
 
 
@@ -85,6 +85,19 @@ structure values n =
         newStructure =
             structureHelp activeDimensions values initial
 
+        hull =
+            Point3d.hullOf (List.map .point newStructure.points)
+                |> Maybe.withDefault (BoundingBox3d.singleton Point3d.origin)
+
+        ( x, y, z ) =
+            BoundingBox3d.dimensions hull
+
+        scale3d =
+            1 / (List.maximum [ x, y, z, 1 ] |> Maybe.withDefault 1) / 1.4
+
+        focalPoint =
+            BoundingBox3d.centroid hull
+
         value =
             List.foldl
                 (\{ number, distance, direction } ->
@@ -98,10 +111,10 @@ structure values n =
                 activeDimensions
     in
         { newStructure
-            | hull =
-                Point3d.hullOf (List.map .point newStructure.points)
-                    |> Maybe.withDefault initial.hull
-            , value = value
+            | focalPoint = focalPoint
+            , value = Point3d.scaleAbout focalPoint scale3d value
+            , points = List.map (\point -> { point | point = Point3d.scaleAbout focalPoint scale3d point.point }) newStructure.points
+            , lines = List.map (\line -> { line | line = LineSegment3d.scaleAbout focalPoint scale3d line.line }) newStructure.lines
             , coordinates =
                 List.map
                     (\{ number, distance, direction } ->
@@ -115,6 +128,7 @@ structure values n =
                                     value
                                 )
                                 value
+                                |> LineSegment3d.scaleAbout focalPoint scale3d
                         , number = number
                         }
                     )
@@ -132,7 +146,7 @@ initial =
     , lines = []
     , coordinates = []
     , value = Point3d.origin
-    , hull = BoundingBox3d.singleton Point3d.origin
+    , focalPoint = Point3d.origin
     }
 
 
@@ -147,7 +161,7 @@ structureHelp dimensions values structure =
 
 
 addDimension : Array Float -> Dimension -> Structure -> Structure
-addDimension values { number, direction, distance } { value, coordinates, points, lines, hull } =
+addDimension values { number, direction, distance } { value, coordinates, points, lines, focalPoint } =
     { points =
         List.concat
             [ List.map
@@ -175,7 +189,7 @@ addDimension values { number, direction, distance } { value, coordinates, points
                 lines
             , lines
             ]
-    , hull = hull
+    , focalPoint = focalPoint
     , value = value
     , coordinates = coordinates
     }

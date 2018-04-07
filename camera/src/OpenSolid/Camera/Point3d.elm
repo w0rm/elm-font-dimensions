@@ -8,7 +8,6 @@ module OpenSolid.Camera.Point3d exposing (toScreenSpace)
 
 import Math.Matrix4
 import OpenSolid.Camera as Camera exposing (Camera)
-import OpenSolid.Interop.LinearAlgebra.Point3d as Point3d
 import OpenSolid.Point2d as Point2d exposing (Point2d)
 import OpenSolid.Point3d as Point3d exposing (Point3d)
 
@@ -28,6 +27,9 @@ toScreenSpace camera =
         viewProjectionMatrix =
             Math.Matrix4.mul projectionMatrix viewMatrix
 
+        { m11, m12, m13, m14, m21, m22, m23, m24, m41, m42, m43, m44 } =
+            Math.Matrix4.toRecord viewProjectionMatrix
+
         halfWidth =
             0.5 * Camera.screenWidth camera
 
@@ -36,11 +38,17 @@ toScreenSpace camera =
     in
     \point ->
         let
-            ndcPoint =
-                Point3d.transformBy viewProjectionMatrix point
+            ( x, y, z ) =
+                Point3d.coordinates point
 
-            ( ndcX, ndcY, _ ) =
-                Point3d.coordinates ndcPoint
+            w =
+                m41 * x + m42 * y + m43 * z + m44
+
+            ndcX =
+                (m11 * x + m12 * y + m13 * z + m14) / w
+
+            ndcY =
+                (m21 * x + m22 * y + m23 * z + m24) / w
         in
         Point2d.fromCoordinates
             ( halfWidth + halfWidth * ndcX

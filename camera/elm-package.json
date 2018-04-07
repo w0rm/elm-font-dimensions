@@ -4,9 +4,7 @@
     "repository": "https://github.com/opensolid/camera.git",
     "license": "MPL-2.0",
     "source-directories": [
-        "src",
-        "../geometry/src",
-        "../linear-algebra-interop/src"
+        "src"
     ],
     "exposed-modules": [
         "OpenSolid.Camera",
@@ -20,7 +18,9 @@
         "elm-community/linear-algebra": "3.1.1 <= v < 4.0.0",
         "elm-community/webgl": "2.0.3 <= v < 3.0.0",
         "elm-lang/core": "5.1.1 <= v < 6.0.0",
-        "elm-lang/html": "2.0.0 <= v < 3.0.0"
+        "elm-lang/html": "2.0.0 <= v < 3.0.0",
+        "opensolid/geometry": "2.1.0 <= v < 3.0.0",
+        "opensolid/linear-algebra-interop": "2.0.0 <= v < 3.0.0"
     },
     "elm-version": "0.18.0 <= v < 0.19.0"
 }

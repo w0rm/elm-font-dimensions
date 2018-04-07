@@ -6,10 +6,7 @@ import Svg exposing (Svg)
 import Svg.Attributes as SvgAttributes
 import Html.Attributes as HtmlAttributes
 import OpenSolid.Svg as Svg
-import OpenSolid.Point3d as Point3d exposing (Point3d)
-import OpenSolid.LineSegment3d as LineSegment3d exposing (LineSegment3d)
 import OpenSolid.LineSegment2d as LineSegment2d exposing (LineSegment2d)
-import OpenSolid.BoundingBox3d as BoundingBox3d exposing (BoundingBox3d)
 import OpenSolid.Direction2d as Direction2d
 import OpenSolid.SketchPlane3d as SketchPlane3d exposing (SketchPlane3d)
 import OpenSolid.Frame2d as Frame2d exposing (Frame2d)
@@ -167,12 +164,9 @@ viewStructure model =
         distance =
             10 - model.perspective * 0.9
 
-        focalPoint =
-            BoundingBox3d.centroid model.structure.hull
-
         eyePoint =
             model.sketchPlane
-                |> SketchPlane3d.moveTo focalPoint
+                |> SketchPlane3d.moveTo model.structure.focalPoint
                 |> SketchPlane3d.offsetBy -distance
                 |> SketchPlane3d.originPoint
 
@@ -182,7 +176,7 @@ viewStructure model =
         viewpoint =
             Viewpoint.lookAt
                 { eyePoint = eyePoint
-                , focalPoint = focalPoint
+                , focalPoint = model.structure.focalPoint
                 , upDirection = upDirection
                 }
 
@@ -196,14 +190,14 @@ viewStructure model =
                 , screenHeight = model.height
                 }
 
-        ( x, y, z ) =
-            BoundingBox3d.dimensions model.structure.hull
-
-        scale3d =
-            1 / (List.maximum [ x, y, z, 1 ] |> Maybe.withDefault 1) / 1.4
-
         scale2d =
-            max distance 0.1 * tan (degrees 15) * 2
+            distance * tan (degrees 15) * 2
+
+        line3dToScreenSpace =
+            LineSegment3d.toScreenSpace camera
+
+        point3dToScreenSpace =
+            Point3d.toScreenSpace camera
 
         screenCenter =
             Point2d.fromCoordinates ( model.width / 2, model.height / 2 )
@@ -214,8 +208,7 @@ viewStructure model =
         mapLine { number, line } =
             Svg.lineSegment2d [ SvgAttributes.stroke (color number), strokeWidth ]
                 (line
-                    |> LineSegment3d.scaleAbout focalPoint scale3d
-                    |> LineSegment3d.toScreenSpace camera
+                    |> line3dToScreenSpace
                     |> LineSegment2d.scaleAbout screenCenter scale2d
                 )
 
@@ -227,8 +220,7 @@ viewStructure model =
                 , strokeWidth
                 ]
                 (line
-                    |> LineSegment3d.scaleAbout focalPoint scale3d
-                    |> LineSegment3d.toScreenSpace camera
+                    |> line3dToScreenSpace
                     |> LineSegment2d.scaleAbout screenCenter scale2d
                 )
 
@@ -236,8 +228,7 @@ viewStructure model =
             Svg.point2dWith { radius = 10 - model.dimensions }
                 [ SvgAttributes.fill (color number) ]
                 (point
-                    |> Point3d.scaleAbout focalPoint scale3d
-                    |> Point3d.toScreenSpace camera
+                    |> point3dToScreenSpace
                     |> Point2d.scaleAbout screenCenter scale2d
                 )
 
@@ -248,8 +239,7 @@ viewStructure model =
                 , SvgAttributes.strokeWidth "2"
                 ]
                 (point
-                    |> Point3d.scaleAbout focalPoint scale3d
-                    |> Point3d.toScreenSpace camera
+                    |> point3dToScreenSpace
                     |> Point2d.scaleAbout screenCenter scale2d
                 )
     in

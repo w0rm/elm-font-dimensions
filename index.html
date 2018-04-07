@@ -19162,18 +19162,16 @@ var _user$project$Main$scales = _elm_lang$core$Array$fromList(
 		}
 	});
 var _user$project$Main$viewStructure = function (model) {
-	var offset = _opensolid$geometry$OpenSolid_Vector3d$fromComponents(
-		{
-			ctor: '_Tuple3',
-			_0: 0 - _opensolid$geometry$OpenSolid_BoundingBox3d$midX(model.structure.hull),
-			_1: 0 - _opensolid$geometry$OpenSolid_BoundingBox3d$midY(model.structure.hull),
-			_2: 0 - _opensolid$geometry$OpenSolid_BoundingBox3d$midZ(model.structure.hull)
-		});
+	var strokeWidth = _elm_lang$svg$Svg_Attributes$strokeWidth(
+		_elm_lang$core$Basics$toString(
+			A2(_elm_lang$core$Basics$max, 1, 8 - model.dimensions)));
+	var screenCenter = _opensolid$geometry$OpenSolid_Point2d$fromCoordinates(
+		{ctor: '_Tuple2', _0: model.width / 2, _1: model.height / 2});
 	var _p0 = _opensolid$geometry$OpenSolid_BoundingBox3d$dimensions(model.structure.hull);
 	var x = _p0._0;
 	var y = _p0._1;
 	var z = _p0._2;
-	var scale = (1 / A2(
+	var scale3d = (1 / A2(
 		_elm_lang$core$Maybe$withDefault,
 		1,
 		_elm_lang$core$List$maximum(
@@ -19195,11 +19193,16 @@ var _user$project$Main$viewStructure = function (model) {
 				}
 			}))) / 1.4;
 	var upDirection = _opensolid$geometry$OpenSolid_SketchPlane3d$yDirection(model.sketchPlane);
+	var focalPoint = _opensolid$geometry$OpenSolid_BoundingBox3d$centroid(model.structure.hull);
+	var distance = 10 - (model.perspective * 0.9);
 	var eyePoint = _opensolid$geometry$OpenSolid_SketchPlane3d$originPoint(
-		A2(_opensolid$geometry$OpenSolid_SketchPlane3d$offsetBy, -2, model.sketchPlane));
+		A2(
+			_opensolid$geometry$OpenSolid_SketchPlane3d$offsetBy,
+			0 - distance,
+			A2(_opensolid$geometry$OpenSolid_SketchPlane3d$moveTo, focalPoint, model.sketchPlane)));
 	var viewpoint = _user$project$OpenSolid_Viewpoint$lookAt(
-		{eyePoint: eyePoint, focalPoint: _opensolid$geometry$OpenSolid_Point3d$origin, upDirection: upDirection});
-	var camera = model.perspective ? _user$project$OpenSolid_Camera$perspective(
+		{eyePoint: eyePoint, focalPoint: focalPoint, upDirection: upDirection});
+	var camera = _user$project$OpenSolid_Camera$perspective(
 		{
 			viewpoint: viewpoint,
 			verticalFieldOfView: _elm_lang$core$Basics$degrees(30),
@@ -19207,8 +19210,9 @@ var _user$project$Main$viewStructure = function (model) {
 			farClipDistance: 1000,
 			screenWidth: model.width,
 			screenHeight: model.height
-		}) : _user$project$OpenSolid_Camera$orthographic(
-		{viewpoint: viewpoint, viewportHeight: 1, nearClipDistance: 0.1, farClipDistance: 1000, screenWidth: model.width, screenHeight: model.height});
+		});
+	var scale2d = (A2(_elm_lang$core$Basics$max, distance, 0.1) * _elm_lang$core$Basics$tan(
+		_elm_lang$core$Basics$degrees(15))) * 2;
 	var mapLine = function (_p1) {
 		var _p2 = _p1;
 		return A2(
@@ -19219,21 +19223,18 @@ var _user$project$Main$viewStructure = function (model) {
 					_user$project$Main$color(_p2.number)),
 				_1: {
 					ctor: '::',
-					_0: _elm_lang$svg$Svg_Attributes$strokeWidth(
-						_elm_lang$core$Basics$toString(
-							A2(_elm_lang$core$Basics$max, 1, 8 - model.dimensions))),
+					_0: strokeWidth,
 					_1: {ctor: '[]'}
 				}
 			},
-			A2(
-				_user$project$OpenSolid_Camera_LineSegment3d$toScreenSpace,
-				camera,
-				A3(
-					_opensolid$geometry$OpenSolid_LineSegment3d$scaleAbout,
-					_opensolid$geometry$OpenSolid_Point3d$fromCoordinates(
-						{ctor: '_Tuple3', _0: 0, _1: 0, _2: 0}),
-					scale,
-					A2(_opensolid$geometry$OpenSolid_LineSegment3d$translateBy, offset, _p2.line))));
+			A3(
+				_opensolid$geometry$OpenSolid_LineSegment2d$scaleAbout,
+				screenCenter,
+				scale2d,
+				A2(
+					_user$project$OpenSolid_Camera_LineSegment3d$toScreenSpace,
+					camera,
+					A3(_opensolid$geometry$OpenSolid_LineSegment3d$scaleAbout, focalPoint, scale3d, _p2.line))));
 	};
 	var mapCoordinate = function (_p3) {
 		var _p4 = _p3;
@@ -19251,23 +19252,20 @@ var _user$project$Main$viewStructure = function (model) {
 						_0: _elm_lang$svg$Svg_Attributes$strokeDasharray('10 10'),
 						_1: {
 							ctor: '::',
-							_0: _elm_lang$svg$Svg_Attributes$strokeWidth(
-								_elm_lang$core$Basics$toString(
-									A2(_elm_lang$core$Basics$max, 1, 8 - model.dimensions))),
+							_0: strokeWidth,
 							_1: {ctor: '[]'}
 						}
 					}
 				}
 			},
-			A2(
-				_user$project$OpenSolid_Camera_LineSegment3d$toScreenSpace,
-				camera,
-				A3(
-					_opensolid$geometry$OpenSolid_LineSegment3d$scaleAbout,
-					_opensolid$geometry$OpenSolid_Point3d$fromCoordinates(
-						{ctor: '_Tuple3', _0: 0, _1: 0, _2: 0}),
-					scale,
-					A2(_opensolid$geometry$OpenSolid_LineSegment3d$translateBy, offset, _p4.line))));
+			A3(
+				_opensolid$geometry$OpenSolid_LineSegment2d$scaleAbout,
+				screenCenter,
+				scale2d,
+				A2(
+					_user$project$OpenSolid_Camera_LineSegment3d$toScreenSpace,
+					camera,
+					A3(_opensolid$geometry$OpenSolid_LineSegment3d$scaleAbout, focalPoint, scale3d, _p4.line))));
 	};
 	var mapPoint = function (_p5) {
 		var _p6 = _p5;
@@ -19280,15 +19278,14 @@ var _user$project$Main$viewStructure = function (model) {
 					_user$project$Main$color(_p6.number)),
 				_1: {ctor: '[]'}
 			},
-			A2(
-				_user$project$OpenSolid_Camera_Point3d$toScreenSpace,
-				camera,
-				A3(
-					_opensolid$geometry$OpenSolid_Point3d$scaleAbout,
-					_opensolid$geometry$OpenSolid_Point3d$fromCoordinates(
-						{ctor: '_Tuple3', _0: 0, _1: 0, _2: 0}),
-					scale,
-					A2(_opensolid$geometry$OpenSolid_Point3d$translateBy, offset, _p6.point))));
+			A3(
+				_opensolid$geometry$OpenSolid_Point2d$scaleAbout,
+				screenCenter,
+				scale2d,
+				A2(
+					_user$project$OpenSolid_Camera_Point3d$toScreenSpace,
+					camera,
+					A3(_opensolid$geometry$OpenSolid_Point3d$scaleAbout, focalPoint, scale3d, _p6.point))));
 	};
 	var mapValue = function (point) {
 		return A3(
@@ -19307,15 +19304,14 @@ var _user$project$Main$viewStructure = function (model) {
 					}
 				}
 			},
-			A2(
-				_user$project$OpenSolid_Camera_Point3d$toScreenSpace,
-				camera,
-				A3(
-					_opensolid$geometry$OpenSolid_Point3d$scaleAbout,
-					_opensolid$geometry$OpenSolid_Point3d$fromCoordinates(
-						{ctor: '_Tuple3', _0: 0, _1: 0, _2: 0}),
-					scale,
-					A2(_opensolid$geometry$OpenSolid_Point3d$translateBy, offset, point))));
+			A3(
+				_opensolid$geometry$OpenSolid_Point2d$scaleAbout,
+				screenCenter,
+				scale2d,
+				A2(
+					_user$project$OpenSolid_Camera_Point3d$toScreenSpace,
+					camera,
+					A3(_opensolid$geometry$OpenSolid_Point3d$scaleAbout, focalPoint, scale3d, point))));
 	};
 	return _elm_lang$core$List$concat(
 		{
@@ -19507,23 +19503,27 @@ var _user$project$Main$viewLetter = function (valuesAndScales) {
 									_0: {ctor: '_Tuple2', _0: 'display', _1: 'block'},
 									_1: {
 										ctor: '::',
-										_0: {ctor: '_Tuple2', _0: 'width', _1: '50%'},
+										_0: {ctor: '_Tuple2', _0: 'width', _1: '20%'},
 										_1: {
 											ctor: '::',
-											_0: {ctor: '_Tuple2', _0: 'height', _1: '300px'},
+											_0: {ctor: '_Tuple2', _0: 'min-width', _1: '300px'},
 											_1: {
 												ctor: '::',
-												_0: {ctor: '_Tuple2', _0: 'outline', _1: 'none'},
+												_0: {ctor: '_Tuple2', _0: 'height', _1: '300px'},
 												_1: {
 													ctor: '::',
-													_0: {ctor: '_Tuple2', _0: 'padding', _1: '0 50px'},
+													_0: {ctor: '_Tuple2', _0: 'outline', _1: 'none'},
 													_1: {
 														ctor: '::',
-														_0: {ctor: '_Tuple2', _0: 'border', _1: 'none'},
+														_0: {ctor: '_Tuple2', _0: 'padding', _1: '0 50px'},
 														_1: {
 															ctor: '::',
-															_0: {ctor: '_Tuple2', _0: 'background', _1: 'transparent'},
-															_1: {ctor: '[]'}
+															_0: {ctor: '_Tuple2', _0: 'border', _1: 'none'},
+															_1: {
+																ctor: '::',
+																_0: {ctor: '_Tuple2', _0: 'background', _1: 'transparent'},
+																_1: {ctor: '[]'}
+															}
 														}
 													}
 												}
@@ -19900,68 +19900,83 @@ var _user$project$Main$view = function (model) {
 											_elm_lang$html$Html$label,
 											{
 												ctor: '::',
-												_0: _elm_lang$html$Html_Attributes$style(
-													{
-														ctor: '::',
-														_0: {ctor: '_Tuple2', _0: 'display', _1: 'block'},
-														_1: {
+												_0: _elm_lang$html$Html_Attributes$for('perspective'),
+												_1: {
+													ctor: '::',
+													_0: _elm_lang$html$Html_Attributes$style(
+														{
 															ctor: '::',
-															_0: {ctor: '_Tuple2', _0: 'margin', _1: '0 0 15px'},
+															_0: {ctor: '_Tuple2', _0: 'display', _1: 'block'},
 															_1: {ctor: '[]'}
-														}
-													}),
-												_1: {ctor: '[]'}
+														}),
+													_1: {ctor: '[]'}
+												}
 											},
 											{
 												ctor: '::',
-												_0: A2(
-													_elm_lang$html$Html$input,
-													{
-														ctor: '::',
-														_0: _elm_lang$html$Html_Attributes$type_('checkbox'),
-														_1: {
-															ctor: '::',
-															_0: _elm_lang$html$Html_Attributes$checked(model.perspective),
-															_1: {
-																ctor: '::',
-																_0: _elm_lang$html$Html_Events$onCheck(_user$project$Main$ChangePerspective),
-																_1: {
-																	ctor: '::',
-																	_0: _elm_lang$html$Html_Attributes$style(
-																		{
-																			ctor: '::',
-																			_0: {ctor: '_Tuple2', _0: 'margin', _1: '0 10px 0 0'},
-																			_1: {ctor: '[]'}
-																		}),
-																	_1: {ctor: '[]'}
-																}
-															}
-														}
-													},
-													{ctor: '[]'}),
-												_1: {
-													ctor: '::',
-													_0: _elm_lang$html$Html$text('Perspective projection'),
-													_1: {ctor: '[]'}
-												}
+												_0: _elm_lang$html$Html$text('Perspective'),
+												_1: {ctor: '[]'}
 											}),
 										_1: {
 											ctor: '::',
 											_0: A2(
-												_elm_lang$html$Html$div,
-												{ctor: '[]'},
-												A2(
-													_elm_lang$core$List$indexedMap,
-													F2(
-														function (n, _p21) {
-															var _p22 = _p21;
-															return A3(_user$project$Main$viewSlider, n, _p22._0, _p22._1);
-														}),
+												_elm_lang$html$Html$input,
+												{
+													ctor: '::',
+													_0: _elm_lang$html$Html_Attributes$id('perspective'),
+													_1: {
+														ctor: '::',
+														_0: _elm_lang$html$Html_Attributes$type_('range'),
+														_1: {
+															ctor: '::',
+															_0: _elm_lang$html$Html_Attributes$value(
+																_elm_lang$core$Basics$toString(model.perspective)),
+															_1: {
+																ctor: '::',
+																_0: _elm_lang$html$Html_Events$onInput(
+																	function (_p21) {
+																		return _user$project$Main$ChangePerspective(
+																			A2(
+																				_elm_lang$core$Result$withDefault,
+																				0,
+																				_elm_lang$core$String$toFloat(_p21)));
+																	}),
+																_1: {
+																	ctor: '::',
+																	_0: _elm_lang$html$Html_Attributes$min('0'),
+																	_1: {
+																		ctor: '::',
+																		_0: _elm_lang$html$Html_Attributes$max('10'),
+																		_1: {
+																			ctor: '::',
+																			_0: _elm_lang$html$Html_Attributes$step('0.5'),
+																			_1: {ctor: '[]'}
+																		}
+																	}
+																}
+															}
+														}
+													}
+												},
+												{ctor: '[]'}),
+											_1: {
+												ctor: '::',
+												_0: A2(
+													_elm_lang$html$Html$div,
+													{ctor: '[]'},
 													A2(
-														_elm_lang$core$List$take,
-														_elm_lang$core$Basics$round(model.dimensions),
-														valuesAndScales))),
-											_1: {ctor: '[]'}
+														_elm_lang$core$List$indexedMap,
+														F2(
+															function (n, _p22) {
+																var _p23 = _p22;
+																return A3(_user$project$Main$viewSlider, n, _p23._0, _p23._1);
+															}),
+														A2(
+															_elm_lang$core$List$take,
+															_elm_lang$core$Basics$round(model.dimensions),
+															valuesAndScales))),
+												_1: {ctor: '[]'}
+											}
 										}
 									}
 								}
@@ -20034,7 +20049,7 @@ var _user$project$Main$init = function () {
 			structure: A2(_user$project$Structure$structure, values, 0),
 			dimensions: 0,
 			values: values,
-			perspective: false
+			perspective: 0
 		},
 		_1: A2(_elm_lang$core$Task$perform, _user$project$Main$Resize, _elm_lang$window$Window$size)
 	};
