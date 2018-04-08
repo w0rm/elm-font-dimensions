@@ -1,0 +1,54 @@
+<html>
+
+<head>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0
+        }
+
+        input[type=file] {
+            position: absolute;
+            left: 30px;
+            top: 20px;
+            z-index: 1;
+        }
+    </style>
+</head>
+
+<body>
+    <script src="https://cdn.jsdelivr.net/npm/opentype.js@latest/dist/opentype.min.js"></script>
+    <script src="/_compile/Main.elm"></script>
+    <script>
+        var app = Elm.Main.fullscreen();
+        document.body.addEventListener('change', function (e) {
+            const files = e.target.files;
+            if (files && files.length === 1) {
+                var bufferReader = new FileReader();
+                bufferReader.onload = function (e) {
+                    var buffer = e.target.result;
+                    var url = URL.createObjectURL(files[0]);
+                    var font = opentype.parse(e.target.result);
+                    var data = {
+                        dimensions: font.tables.fvar.axes.map(function (d) {
+                            return {
+                                value: d.defaultValue,
+                                min: d.minValue,
+                                max: d.maxValue,
+                                title: d.name.en,
+                                name: d.tag
+                            }
+                        }),
+                        url: url
+                    };
+                    app.ports.loadFont.send(data);
+                };
+                bufferReader.readAsArrayBuffer(files[0]);
+            }
+        });
+    </script>
+    <input type="file">
+</body>
+
+</html>

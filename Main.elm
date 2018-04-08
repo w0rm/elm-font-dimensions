@@ -1,4 +1,4 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Html exposing (Html)
 import Html.Events as Events
@@ -15,12 +15,17 @@ import Window
 import Task
 import Mouse
 import Array exposing (Array)
-import Structure exposing (Structure, Dimension)
+import Structure exposing (Structure, Dimension, LoadedDimension)
 import Json.Decode as Decode
 import OpenSolid.Camera as Camera exposing (Camera)
 import OpenSolid.Viewpoint as Viewpoint exposing (Viewpoint)
 import OpenSolid.Camera.LineSegment3d as LineSegment3d
 import OpenSolid.Camera.Point3d as Point3d
+
+
+port loadFont :
+    ({ url : String, dimensions : List LoadedDimension } -> msg)
+    -> Sub msg
 
 
 main : Program Never Model Msg
@@ -39,9 +44,10 @@ type alias Model =
     , mouse : Maybe Point2d
     , sketchPlane : SketchPlane3d
     , structure : Structure
-    , dimensionsCount : Float
+    , dimensionsCount : Int
     , dimensions : List Dimension
     , perspective : Float
+    , url : String
     , text : String
     , tab : Tab
     }
@@ -59,6 +65,30 @@ tabs =
     ]
 
 
+initialDimensions : List Dimension
+initialDimensions =
+    Structure.dimensions
+        [ { name = "wght"
+          , title = "Weight"
+          , min = 28
+          , max = 194
+          , value = 94
+          }
+        , { name = "wdth"
+          , title = "Width"
+          , min = 50
+          , max = 130
+          , value = 100
+          }
+        , { name = "opsz"
+          , title = "Optical Size"
+          , min = 12
+          , max = 72
+          , value = 12
+          }
+        ]
+
+
 init : ( Model, Cmd Msg )
 init =
     ( { width = 1
@@ -68,12 +98,13 @@ init =
             SketchPlane3d.xy
                 |> SketchPlane3d.rotateAroundOwn SketchPlane3d.xAxis (-pi / 8)
                 |> SketchPlane3d.rotateAroundOwn SketchPlane3d.yAxis (-pi / 13)
-      , structure = Structure.structure Structure.dimensions 0
-      , dimensionsCount = 0
-      , dimensions = Structure.dimensions
+      , structure = Structure.structure initialDimensions (List.length initialDimensions)
+      , dimensionsCount = List.length initialDimensions
+      , dimensions = initialDimensions
       , perspective = 0
       , text = "Afg"
       , tab = Values
+      , url = "https://www.axis-praxis.org/fonts/webfonts/VotoSerifGX.latin1.ttf"
       }
     , Task.perform Resize Window.size
     )
@@ -84,17 +115,32 @@ type Msg
     | MouseDown Mouse.Position
     | MouseUp Mouse.Position
     | MouseMove Mouse.Position
-    | ChangeDimensions Float
+    | ChangeDimensions Int
     | ChangeValue Int Float
     | ChangeDistance Int Float
     | ChangePerspective Float
     | ChangeTab Tab
+    | LoadFont { url : String, dimensions : List LoadedDimension }
     | Noop
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        LoadFont font ->
+            let
+                dimensions =
+                    Structure.dimensions font.dimensions
+            in
+                ( { model
+                    | url = font.url
+                    , dimensions = dimensions
+                    , dimensionsCount = List.length dimensions
+                    , structure = Structure.structure dimensions (List.length dimensions)
+                  }
+                , Cmd.none
+                )
+
         Noop ->
             ( model, Cmd.none )
 
@@ -112,7 +158,7 @@ update msg model =
             in
                 ( { model
                     | dimensions = newDimensions
-                    , structure = Structure.structure newDimensions (round model.dimensionsCount)
+                    , structure = Structure.structure newDimensions model.dimensionsCount
                   }
                 , Cmd.none
                 )
@@ -131,7 +177,7 @@ update msg model =
             in
                 ( { model
                     | dimensions = newDimensions
-                    , structure = Structure.structure newDimensions (round model.dimensionsCount)
+                    , structure = Structure.structure newDimensions model.dimensionsCount
                   }
                 , Cmd.none
                 )
@@ -139,7 +185,7 @@ update msg model =
         ChangeDimensions dimensionsCount ->
             ( { model
                 | dimensionsCount = dimensionsCount
-                , structure = Structure.structure model.dimensions (round dimensionsCount)
+                , structure = Structure.structure model.dimensions dimensionsCount
               }
             , Cmd.none
             )
@@ -191,6 +237,7 @@ subscriptions model =
             |> Maybe.map (always (Mouse.moves MouseMove))
             |> Maybe.withDefault Sub.none
         , Mouse.ups MouseUp
+        , loadFont LoadFont
         ]
 
 
@@ -239,18 +286,18 @@ viewStructure model =
             Point2d.fromCoordinates ( model.width / 2, model.height / 2 )
 
         strokeWidth =
-            SvgAttributes.strokeWidth (toString (max 1 (8 - model.dimensionsCount)))
+            SvgAttributes.strokeWidth (toString (max 1 (8 - toFloat model.dimensionsCount)))
 
-        mapLine { number, line } =
-            Svg.lineSegment2d [ SvgAttributes.stroke (color number), strokeWidth ]
+        mapLine { color, line } =
+            Svg.lineSegment2d [ SvgAttributes.stroke color, strokeWidth ]
                 (line
                     |> line3dToScreenSpace
                     |> LineSegment2d.scaleAbout screenCenter scale2d
                 )
 
-        mapCoordinate { number, line } =
+        mapCoordinate { color, line } =
             Svg.lineSegment2d
-                [ SvgAttributes.stroke (color number)
+                [ SvgAttributes.stroke color
                 , SvgAttributes.strokeOpacity "0.5"
                 , SvgAttributes.strokeDasharray "10 10"
                 , strokeWidth
@@ -260,16 +307,16 @@ viewStructure model =
                     |> LineSegment2d.scaleAbout screenCenter scale2d
                 )
 
-        mapPoint { number, point } =
-            Svg.point2dWith { radius = 10 - model.dimensionsCount }
-                [ SvgAttributes.fill (color number) ]
+        mapPoint { color, point } =
+            Svg.point2dWith { radius = 10 - toFloat model.dimensionsCount }
+                [ SvgAttributes.fill color ]
                 (point
                     |> point3dToScreenSpace
                     |> Point2d.scaleAbout screenCenter scale2d
                 )
 
         mapValue point =
-            Svg.point2dWith { radius = 10 - model.dimensionsCount }
+            Svg.point2dWith { radius = 10 - toFloat model.dimensionsCount }
                 [ SvgAttributes.fill "#fff"
                 , SvgAttributes.stroke "#000"
                 , SvgAttributes.strokeWidth "2"
@@ -306,7 +353,7 @@ view model =
                 , ( "height", "100%" )
                 ]
             ]
-            [ viewStyle
+            [ viewStyle model.url
             , Svg.svg
                 [ SvgAttributes.width (toString model.width)
                 , SvgAttributes.height (toString model.height)
@@ -329,15 +376,15 @@ view model =
                     [ HtmlAttributes.for "dimensions"
                     , HtmlAttributes.style [ ( "display", "block" ) ]
                     ]
-                    [ Html.text ("Dimensions: " ++ toString (round model.dimensionsCount))
+                    [ Html.text ("Dimensions: " ++ toString model.dimensionsCount)
                     ]
                 , Html.input
                     [ HtmlAttributes.id "dimensions"
                     , HtmlAttributes.type_ "range"
                     , HtmlAttributes.style [ ( "color", "#909090" ) ]
-                    , Events.onInput (String.toFloat >> Result.withDefault 0 >> ChangeDimensions)
+                    , Events.onInput (String.toInt >> Result.withDefault 0 >> ChangeDimensions)
                     , HtmlAttributes.min "0"
-                    , HtmlAttributes.max "8"
+                    , HtmlAttributes.max (List.length model.dimensions |> toString)
                     , HtmlAttributes.step "1"
                     , HtmlAttributes.value (toString model.dimensionsCount)
                     ]
@@ -384,7 +431,7 @@ view model =
                             Scales ->
                                 viewScaleSlider
                         )
-                        (List.take (round model.dimensionsCount) model.dimensions)
+                        (List.take model.dimensionsCount model.dimensions)
                     )
                 ]
             ]
@@ -427,11 +474,9 @@ viewLetter valuesAndScales text =
     let
         fontVariationSettings =
             valuesAndScales
-                -- only 3 dimensions are supported by 'Voto Serif GX'
-                |> List.take 3
                 |> List.map
-                    (\{ value, name, min, max } ->
-                        "'" ++ name ++ "' " ++ toString (round (min + (max - min) * value))
+                    (\{ value, name } ->
+                        "'" ++ name ++ "' " ++ toString value
                     )
                 |> String.join ", "
     in
@@ -465,7 +510,7 @@ viewLetter valuesAndScales text =
 
 
 viewValueSlider : Dimension -> Html Msg
-viewValueSlider { number, value, title, min, max, step } =
+viewValueSlider { number, color, value, title, min, max, step } =
     Html.div []
         [ Html.label
             [ HtmlAttributes.for title
@@ -473,16 +518,16 @@ viewValueSlider { number, value, title, min, max, step } =
             ]
             [ Html.text ("Axis " ++ toString (number + 1) ++ " ")
             , Html.em [] [ Html.text title ]
-            , Html.text (" = " ++ toString (round (min + (max - min) * value)))
+            , Html.text (" = " ++ toString (round value))
             ]
         , Html.input
             [ HtmlAttributes.id title
             , HtmlAttributes.type_ "range"
-            , HtmlAttributes.style [ ( "color", color number ) ]
+            , HtmlAttributes.style [ ( "color", color ) ]
             , Events.onInput (String.toFloat >> Result.withDefault 0 >> ChangeValue number)
-            , HtmlAttributes.min "0"
-            , HtmlAttributes.max "1"
-            , HtmlAttributes.step (toString (step / (abs (max - min))))
+            , HtmlAttributes.min (toString min)
+            , HtmlAttributes.max (toString max)
+            , HtmlAttributes.step "1"
             , HtmlAttributes.value (toString value)
             ]
             []
@@ -490,7 +535,7 @@ viewValueSlider { number, value, title, min, max, step } =
 
 
 viewScaleSlider : Dimension -> Html Msg
-viewScaleSlider { number, distance, title } =
+viewScaleSlider { number, color, distance, title } =
     Html.div []
         [ Html.label
             [ HtmlAttributes.for title
@@ -503,7 +548,7 @@ viewScaleSlider { number, distance, title } =
         , Html.input
             [ HtmlAttributes.id title
             , HtmlAttributes.type_ "range"
-            , HtmlAttributes.style [ ( "color", color number ) ]
+            , HtmlAttributes.style [ ( "color", color ) ]
             , Events.onInput (String.toFloat >> Result.withDefault 0 >> ChangeDistance number)
             , HtmlAttributes.min "0"
             , HtmlAttributes.max "50"
@@ -514,34 +559,14 @@ viewScaleSlider { number, distance, title } =
         ]
 
 
-color : Int -> String
-color number =
-    Array.get number colors
-        |> Maybe.withDefault "transparent"
-
-
-colors : Array String
-colors =
-    Array.fromList
-        [ "#1a1919"
-        , "#d62631"
-        , "#00974c"
-        , "#00a4d8"
-        , "#dd5893"
-        , "#f1b13b"
-        , "#cccccc"
-        , "#e4e4e3"
-        ]
-
-
-viewStyle : Html Msg
-viewStyle =
+viewStyle : String -> Html Msg
+viewStyle url =
     Html.node "style"
         []
-        [ Html.text """
+        [ Html.text ("""
 @font-face {
   font-family: 'Voto Serif GX';
-  src: url('https://www.axis-praxis.org/fonts/webfonts/VotoSerifGX.latin1.ttf') format('truetype');
+  src: url('""" ++ url ++ """') format('truetype');
 }
 input[type=range] {
   -webkit-appearance: none;
@@ -610,4 +635,4 @@ input[type=range]:focus::-ms-fill-lower {
 input[type=range]:focus::-ms-fill-upper {
   background: transparent;
 }
-""" ]
+""") ]
