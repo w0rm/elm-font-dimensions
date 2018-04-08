@@ -1,53 +1,9 @@
-module Structure exposing (Structure, structure, sortLinesByDistanceToPoint)
+module Structure exposing (Structure, Dimension, structure, dimensions, sortLinesByDistanceToPoint)
 
 import OpenSolid.Point3d as Point3d exposing (Point3d)
 import OpenSolid.LineSegment3d as LineSegment3d exposing (LineSegment3d)
 import OpenSolid.BoundingBox3d as BoundingBox3d exposing (BoundingBox3d)
 import OpenSolid.Vector3d as Vector3d exposing (Vector3d)
-import Array exposing (Array)
-
-
-type alias Dimension =
-    { direction : Vector3d
-    , distance : Float
-    , number : Int
-    }
-
-
-dimensions : List Dimension
-dimensions =
-    [ { direction = Vector3d.fromComponents ( 1, 0, 0 )
-      , distance = 1
-      }
-    , { direction = Vector3d.fromComponents ( 0, 0, -1 )
-      , distance = 1.618
-      }
-    , { direction = Vector3d.fromComponents ( 0, 1, 0 )
-      , distance = 1.618 ^ 2
-      }
-    , { direction = Vector3d.fromComponents ( -1, 1, 1 )
-      , distance = 1.618 ^ 3
-      }
-    , { direction = Vector3d.fromComponents ( 1, 1, 1 )
-      , distance = 1.618 ^ 4
-      }
-    , { direction = Vector3d.fromComponents ( 1, -1, 1 )
-      , distance = 1.618 ^ 5
-      }
-    , { direction = Vector3d.fromComponents ( 1, 1, -1 )
-      , distance = 1.618 ^ 7
-      }
-    , { direction = Vector3d.fromComponents ( -1, -1, -1 )
-      , distance = 1.618 ^ 8
-      }
-    ]
-        |> List.indexedMap
-            (\n { direction, distance } ->
-                { direction = Vector3d.normalize direction
-                , distance = distance
-                , number = n
-                }
-            )
 
 
 type alias Structure =
@@ -56,6 +12,19 @@ type alias Structure =
     , value : Point3d
     , coordinates : List Line
     , focalPoint : Point3d
+    }
+
+
+type alias Dimension =
+    { direction : Vector3d
+    , distance : Float
+    , value : Float
+    , number : Int
+    , name : String
+    , title : String
+    , min : Float
+    , max : Float
+    , step : Float
     }
 
 
@@ -71,19 +40,93 @@ type alias Line =
     }
 
 
+dimensions : List Dimension
+dimensions =
+    [ { direction = Vector3d.fromComponents ( 1, 0, 0 )
+      , distance = 1
+      , name = "wght"
+      , title = "weight"
+      , min = 28
+      , max = 194
+      }
+    , { direction = Vector3d.fromComponents ( 0, 0, -1 )
+      , distance = 1.618
+      , name = "wdth"
+      , title = "width"
+      , min = 50
+      , max = 130
+      }
+    , { direction = Vector3d.fromComponents ( 0, 1, 0 )
+      , distance = 1.618 ^ 2
+      , name = "opsz"
+      , title = "optical size"
+      , min = 12
+      , max = 72
+      }
+    , { direction = Vector3d.fromComponents ( -1, 1, 1 )
+      , distance = 1.618 ^ 3
+      , name = "x-height"
+      , title = "x-height"
+      , min = 450
+      , max = 550
+      }
+    , { direction = Vector3d.fromComponents ( 1, 1, 1 )
+      , distance = 1.618 ^ 4
+      , name = "ascender"
+      , title = "ascender"
+      , min = 650
+      , max = 750
+      }
+    , { direction = Vector3d.fromComponents ( 1, -1, 1 )
+      , distance = 1.618 ^ 5
+      , name = "descender"
+      , title = "descender"
+      , min = -200
+      , max = -300
+      }
+    , { direction = Vector3d.fromComponents ( 1, 1, -1 )
+      , distance = 1.618 ^ 7
+      , name = "contrast"
+      , title = "contrast"
+      , min = 20
+      , max = 90
+      }
+    , { direction = Vector3d.fromComponents ( -1, -1, -1 )
+      , distance = 1.618 ^ 8
+      , name = "serifcurve"
+      , title = "serif curve"
+      , min = 0
+      , max = 10
+      }
+    ]
+        |> List.indexedMap
+            (\n { direction, distance, name, title, min, max } ->
+                { direction = Vector3d.normalize direction
+                , distance = distance
+                , number = n
+                , value = 0
+                , step = 1
+                , name = name
+                , title = title
+                , min = min
+                , max = max
+                }
+            )
+
+
 sortLinesByDistanceToPoint : Point3d -> List Line -> List Line
 sortLinesByDistanceToPoint point =
     List.sortBy (.line >> LineSegment3d.midpoint >> Point3d.distanceFrom point >> (*) -1)
 
 
-structure : Array Float -> Int -> Structure
-structure values n =
+structure : List Dimension -> Int -> Structure
+structure dimensions n =
     let
         activeDimensions =
             List.take n dimensions
 
         newStructure =
-            structureHelp activeDimensions values initial
+            structureHelp activeDimensions initial
 
         hull =
             Point3d.hullOf (List.map .point newStructure.points)
@@ -98,36 +141,30 @@ structure values n =
         focalPoint =
             BoundingBox3d.centroid hull
 
-        value =
+        currentValue =
             List.foldl
-                (\{ number, distance, direction } ->
+                (\{ number, distance, direction, value } ->
                     Point3d.translateBy
-                        (Vector3d.scaleBy
-                            (distance * (Array.get number values |> Maybe.withDefault 0))
-                            direction
-                        )
+                        (Vector3d.scaleBy (distance * value) direction)
                 )
                 newStructure.value
                 activeDimensions
     in
         { newStructure
             | focalPoint = focalPoint
-            , value = Point3d.scaleAbout focalPoint scale3d value
+            , value = Point3d.scaleAbout focalPoint scale3d currentValue
             , points = List.map (\point -> { point | point = Point3d.scaleAbout focalPoint scale3d point.point }) newStructure.points
             , lines = List.map (\line -> { line | line = LineSegment3d.scaleAbout focalPoint scale3d line.line }) newStructure.lines
             , coordinates =
                 List.map
-                    (\{ number, distance, direction } ->
+                    (\{ number, distance, direction, value } ->
                         { line =
                             LineSegment3d.from
                                 (Point3d.translateBy
-                                    (Vector3d.scaleBy
-                                        (-distance * (Array.get number values |> Maybe.withDefault 0))
-                                        direction
-                                    )
-                                    value
+                                    (Vector3d.scaleBy (-distance * value) direction)
+                                    currentValue
                                 )
-                                value
+                                currentValue
                                 |> LineSegment3d.scaleAbout focalPoint scale3d
                         , number = number
                         }
@@ -150,18 +187,18 @@ initial =
     }
 
 
-structureHelp : List Dimension -> Array Float -> Structure -> Structure
-structureHelp dimensions values structure =
+structureHelp : List Dimension -> Structure -> Structure
+structureHelp dimensions structure =
     case dimensions of
         [] ->
             structure
 
         dimension :: restDimensions ->
-            structureHelp restDimensions values (addDimension values dimension structure)
+            structureHelp restDimensions (addDimension dimension structure)
 
 
-addDimension : Array Float -> Dimension -> Structure -> Structure
-addDimension values { number, direction, distance } { value, coordinates, points, lines, focalPoint } =
+addDimension : Dimension -> Structure -> Structure
+addDimension { number, direction, distance } { value, coordinates, points, lines, focalPoint } =
     { points =
         List.concat
             [ List.map
