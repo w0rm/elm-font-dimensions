@@ -42,7 +42,7 @@ type alias Line =
 
 dimensions : List Dimension
 dimensions =
-    [ { direction = Vector3d.fromComponents ( 1, 0, 0 )
+    [ { direction = Vector3d.fromComponents ( -1, 0, 0 )
       , distance = 1
       , name = "wght"
       , title = "weight"
@@ -102,7 +102,7 @@ dimensions =
         |> List.indexedMap
             (\n { direction, distance, name, title, min, max } ->
                 { direction = Vector3d.normalize direction
-                , distance = distance
+                , distance = toFloat (round distance * 10) / 10
                 , number = n
                 , value = 0
                 , step = 1

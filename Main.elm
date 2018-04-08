@@ -43,7 +43,20 @@ type alias Model =
     , dimensions : List Dimension
     , perspective : Float
     , text : String
+    , tab : Tab
     }
+
+
+type Tab
+    = Values
+    | Scales
+
+
+tabs : List ( String, Tab )
+tabs =
+    [ ( "Values", Values )
+    , ( "Scales", Scales )
+    ]
 
 
 init : ( Model, Cmd Msg )
@@ -60,6 +73,7 @@ init =
       , dimensions = Structure.dimensions
       , perspective = 0
       , text = "Afg"
+      , tab = Values
       }
     , Task.perform Resize Window.size
     )
@@ -72,8 +86,9 @@ type Msg
     | MouseMove Mouse.Position
     | ChangeDimensions Float
     | ChangeValue Int Float
+    | ChangeDistance Int Float
     | ChangePerspective Float
-    | ChangeText String
+    | ChangeTab Tab
     | Noop
 
 
@@ -102,6 +117,25 @@ update msg model =
                 , Cmd.none
                 )
 
+        ChangeDistance number distance ->
+            let
+                newDimensions =
+                    List.map
+                        (\dimension ->
+                            if dimension.number == number then
+                                { dimension | distance = distance }
+                            else
+                                dimension
+                        )
+                        model.dimensions
+            in
+                ( { model
+                    | dimensions = newDimensions
+                    , structure = Structure.structure newDimensions (round model.dimensionsCount)
+                  }
+                , Cmd.none
+                )
+
         ChangeDimensions dimensionsCount ->
             ( { model
                 | dimensionsCount = dimensionsCount
@@ -110,11 +144,11 @@ update msg model =
             , Cmd.none
             )
 
+        ChangeTab tab ->
+            ( { model | tab = tab }, Cmd.none )
+
         ChangePerspective perspective ->
             ( { model | perspective = perspective }, Cmd.none )
-
-        ChangeText text ->
-            ( { model | text = text }, Cmd.none )
 
         Resize { width, height } ->
             ( { model | width = toFloat width, height = toFloat height }, Cmd.none )
@@ -300,11 +334,12 @@ view model =
                 , Html.input
                     [ HtmlAttributes.id "dimensions"
                     , HtmlAttributes.type_ "range"
-                    , HtmlAttributes.value (toString model.dimensionsCount)
+                    , HtmlAttributes.style [ ( "color", "#909090" ) ]
                     , Events.onInput (String.toFloat >> Result.withDefault 0 >> ChangeDimensions)
                     , HtmlAttributes.min "0"
                     , HtmlAttributes.max "8"
                     , HtmlAttributes.step "1"
+                    , HtmlAttributes.value (toString model.dimensionsCount)
                     ]
                     []
                 , Html.label
@@ -316,21 +351,75 @@ view model =
                 , Html.input
                     [ HtmlAttributes.id "perspective"
                     , HtmlAttributes.type_ "range"
-                    , HtmlAttributes.value (toString model.perspective)
+                    , HtmlAttributes.style [ ( "color", "#909090" ) ]
                     , Events.onInput (String.toFloat >> Result.withDefault 0 >> ChangePerspective)
                     , HtmlAttributes.min "0"
                     , HtmlAttributes.max "10"
                     , HtmlAttributes.step "0.5"
+                    , HtmlAttributes.value (toString model.perspective)
                     ]
                     []
                 , Html.div
+                    [ HtmlAttributes.style
+                        [ ( "border-bottom", "1px solid #909090" )
+                        , ( "height", "35px" )
+                        , ( "line-height", "35px" )
+                        , ( "margin", "10px 0" )
+                        , ( "display"
+                          , if model.dimensionsCount == 0 then
+                                "none"
+                            else
+                                "block"
+                          )
+                        ]
+                    ]
+                    (List.map (viewTab model.tab) tabs)
+                , Html.div
                     []
                     (List.map
-                        viewSlider
+                        (case model.tab of
+                            Values ->
+                                viewValueSlider
+
+                            Scales ->
+                                viewScaleSlider
+                        )
                         (List.take (round model.dimensionsCount) model.dimensions)
                     )
                 ]
             ]
+
+
+viewTab : Tab -> ( String, Tab ) -> Html Msg
+viewTab activeTab ( title, tab ) =
+    if activeTab == tab then
+        Html.span
+            [ HtmlAttributes.style
+                [ ( "border", "1px solid #909090" )
+                , ( "border-bottom", "none" )
+                , ( "font", "inherit" )
+                , ( "display", "inline-block" )
+                , ( "padding", "0 10px" )
+                , ( "background", "#fff" )
+                ]
+            ]
+            [ Html.text title ]
+    else
+        Html.button
+            [ HtmlAttributes.style
+                [ ( "border", "1px solid transparent" )
+                , ( "border-bottom", "none" )
+                , ( "background", "transparent" )
+                , ( "display", "inline-block" )
+                , ( "color", "#909090" )
+                , ( "outline", "none" )
+                , ( "font", "inherit" )
+                , ( "padding", "0 10px" )
+                , ( "cursor", "pointer" )
+                ]
+            , Events.onClick (ChangeTab tab)
+            ]
+            [ Html.text title ]
 
 
 viewLetter : List Dimension -> String -> Html Msg
@@ -352,6 +441,7 @@ viewLetter valuesAndScales text =
                 , ( "bottom", "0" )
                 , ( "left", "0" )
                 , ( "max-width", "100%" )
+                , ( "max-height", "100%" )
                 , ( "box-sizing", "border-box" )
                 , ( "padding", "0 50px" )
                 , ( "outline", "none" )
@@ -359,22 +449,23 @@ viewLetter valuesAndScales text =
                 , ( "font-size", "200px" )
                 , ( "line-height", "1.5" )
                 , ( "text-rendering", "optimizeLegibility" )
+                , ( "caret-color", "#909090" )
                 , ( "font-variation-settings", fontVariationSettings )
                 ]
             , Events.onWithOptions "mousedown"
-                { stopPropagation = True, preventDefault = False }
+                { stopPropagation = True
+                , preventDefault = False
+                }
                 (Decode.succeed Noop)
-            , Events.onInput ChangeText
             , HtmlAttributes.spellcheck False
             , HtmlAttributes.autocomplete False
             , HtmlAttributes.contenteditable True
-            , Events.onInput ChangeText
             ]
             [ Html.text text ]
 
 
-viewSlider : Dimension -> Html Msg
-viewSlider { number, value, title, min, max, step } =
+viewValueSlider : Dimension -> Html Msg
+viewValueSlider { number, value, title, min, max, step } =
     Html.div []
         [ Html.label
             [ HtmlAttributes.for title
@@ -387,12 +478,37 @@ viewSlider { number, value, title, min, max, step } =
         , Html.input
             [ HtmlAttributes.id title
             , HtmlAttributes.type_ "range"
-            , HtmlAttributes.value (toString value)
             , HtmlAttributes.style [ ( "color", color number ) ]
             , Events.onInput (String.toFloat >> Result.withDefault 0 >> ChangeValue number)
             , HtmlAttributes.min "0"
             , HtmlAttributes.max "1"
             , HtmlAttributes.step (toString (step / (abs (max - min))))
+            , HtmlAttributes.value (toString value)
+            ]
+            []
+        ]
+
+
+viewScaleSlider : Dimension -> Html Msg
+viewScaleSlider { number, distance, title } =
+    Html.div []
+        [ Html.label
+            [ HtmlAttributes.for title
+            , HtmlAttributes.style [ ( "display", "block" ) ]
+            ]
+            [ Html.text ("Axis " ++ toString (number + 1) ++ " ")
+            , Html.em [] [ Html.text title ]
+            , Html.text (" = " ++ toString (toFloat (round (distance * 1000)) / 1000))
+            ]
+        , Html.input
+            [ HtmlAttributes.id title
+            , HtmlAttributes.type_ "range"
+            , HtmlAttributes.style [ ( "color", color number ) ]
+            , Events.onInput (String.toFloat >> Result.withDefault 0 >> ChangeDistance number)
+            , HtmlAttributes.min "0"
+            , HtmlAttributes.max "50"
+            , HtmlAttributes.step "0.1"
+            , HtmlAttributes.value (toString distance)
             ]
             []
         ]
