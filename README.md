@@ -2,7 +2,7 @@
 
 A tool to visualize dimensions of a variable font. [Click for online demo](http://fvar.unsoundscapes.com).
 
-Tested to work in the latest Chrome and Safari browsers.
+Tested to work for variable fonts with **less than 8 axes** in the latest **Chrome and Safari** browsers.
 
 ![Screenshot](screenshot.png)
 
