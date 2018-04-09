@@ -590,6 +590,7 @@ viewStyle url =
             position: absolute;
             left: 30px;
             top: 20px;
+            margin: 0;
             z-index: 1;
         }
 
