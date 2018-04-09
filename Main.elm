@@ -1,4 +1,4 @@
-port module Main exposing (main)
+port module FontDimensions exposing (main)
 
 import Html exposing (Html)
 import Html.Events as Events
@@ -14,7 +14,6 @@ import OpenSolid.Point2d as Point2d exposing (Point2d)
 import Window
 import Task
 import Mouse
-import Array exposing (Array)
 import Structure exposing (Structure, Dimension, LoadedDimension)
 import Json.Decode as Decode
 import OpenSolid.Camera as Camera exposing (Camera)
@@ -24,7 +23,7 @@ import OpenSolid.Camera.Point3d as Point3d
 
 
 port loadFont :
-    ({ url : String, dimensions : List LoadedDimension } -> msg)
+    ({ title : String, url : String, dimensions : List LoadedDimension } -> msg)
     -> Sub msg
 
 
@@ -50,6 +49,7 @@ type alias Model =
     , url : String
     , text : String
     , tab : Tab
+    , title : String
     }
 
 
@@ -104,7 +104,8 @@ init =
       , perspective = 0
       , text = "Afg"
       , tab = Values
-      , url = "https://www.axis-praxis.org/fonts/webfonts/VotoSerifGX.latin1.ttf"
+      , url = "assets/VotoSerifGX.latin1.ttf"
+      , title = "VotoSerifGX.latin1.ttf"
       }
     , Task.perform Resize Window.size
     )
@@ -120,7 +121,7 @@ type Msg
     | ChangeDistance Int Float
     | ChangePerspective Float
     | ChangeTab Tab
-    | LoadFont { url : String, dimensions : List LoadedDimension }
+    | LoadFont { url : String, dimensions : List LoadedDimension, title : String }
     | Noop
 
 
@@ -134,6 +135,7 @@ update msg model =
             in
                 ( { model
                     | url = font.url
+                    , title = font.title
                     , dimensions = dimensions
                     , dimensionsCount = List.length dimensions
                     , structure = Structure.structure dimensions (List.length dimensions)
@@ -364,6 +366,14 @@ view model =
             , Html.div
                 [ HtmlAttributes.style
                     [ ( "position", "absolute" )
+                    , ( "left", "30px" )
+                    , ( "top", "60px" )
+                    ]
+                ]
+                [ Html.text model.title ]
+            , Html.div
+                [ HtmlAttributes.style
+                    [ ( "position", "absolute" )
                     , ( "right", "30px" )
                     , ( "width", "200px" )
                     , ( "top", "30px" )
@@ -564,75 +574,102 @@ viewStyle url =
     Html.node "style"
         []
         [ Html.text ("""
-@font-face {
-  font-family: 'Voto Serif GX';
-  src: url('""" ++ url ++ """') format('truetype');
-}
-input[type=range] {
-  -webkit-appearance: none;
-  margin: 18px 0;
-  width: 100%;
-}
-input[type=range]:focus {
-  outline: none;
-}
-input[type=range]::-webkit-slider-runnable-track {
-  width: 100%;
-  height: 2px;
-  cursor: pointer;
-  background: currentColor;
-}
-input[type=range]::-webkit-slider-thumb {
-  height: 16px;
-  width: 16px;
-  border-radius: 8px;
-  background: currentColor;
-  cursor: pointer;
-  -webkit-appearance: none;
-  margin-top: -8px;
-}
-input[type=range]:focus::-webkit-slider-runnable-track {
-  background: currentColor;
-}
-input[type=range]::-moz-range-track {
-  width: 100%;
-  height: 2px;
-  cursor: pointer;
-  background: currentColor;
-}
-input[type=range]::-moz-range-thumb {
-  height: 16px;
-  width: 16px;
-  border-radius: 8px;
-  background: currentColor;
-  cursor: pointer;
-}
-input[type=range]::-ms-track {
-  width: 100%;
-  height: 2px;
-  cursor: pointer;
-  background: currentColor;
-  border-color: transparent;
-  border-width: 8px 0;
-  color: transparent;
-}
-input[type=range]::-ms-fill-lower {
-  background: transparent;
-}
-input[type=range]::-ms-fill-upper {
-  background: transparent;
-}
-input[type=range]::-ms-thumb {
-  height: 16px;
-  width: 16px;
-  border-radius: 8px;
-  background: currentColor;
-  cursor: pointer;
-}
-input[type=range]:focus::-ms-fill-lower {
-  background: transparent;
-}
-input[type=range]:focus::-ms-fill-upper {
-  background: transparent;
-}
+
+        @font-face {
+            font-family: 'Voto Serif GX';
+            src: url('""" ++ url ++ """') format('truetype');
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0
+        }
+
+        input[type=file] {
+            position: absolute;
+            left: 30px;
+            top: 20px;
+            z-index: 1;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            margin: 18px 0;
+            width: 100%;
+        }
+
+        input[type=range]:focus {
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 2px;
+            cursor: pointer;
+            background: currentColor;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            height: 16px;
+            width: 16px;
+            border-radius: 8px;
+            background: currentColor;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -8px;
+        }
+
+        input[type=range]:focus::-webkit-slider-runnable-track {
+            background: currentColor;
+        }
+
+        input[type=range]::-moz-range-track {
+            width: 100%;
+            height: 2px;
+            cursor: pointer;
+            background: currentColor;
+        }
+
+        input[type=range]::-moz-range-thumb {
+            height: 16px;
+            width: 16px;
+            border-radius: 8px;
+            background: currentColor;
+            cursor: pointer;
+        }
+
+        input[type=range]::-ms-track {
+            width: 100%;
+            height: 2px;
+            cursor: pointer;
+            background: currentColor;
+            border-color: transparent;
+            border-width: 8px 0;
+            color: transparent;
+        }
+
+        input[type=range]::-ms-fill-lower {
+            background: transparent;
+        }
+
+        input[type=range]::-ms-fill-upper {
+            background: transparent;
+        }
+
+        input[type=range]::-ms-thumb {
+            height: 16px;
+            width: 16px;
+            border-radius: 8px;
+            background: currentColor;
+            cursor: pointer;
+        }
+
+        input[type=range]:focus::-ms-fill-lower {
+            background: transparent;
+        }
+
+        input[type=range]:focus::-ms-fill-upper {
+            background: transparent;
+        }
 """) ]

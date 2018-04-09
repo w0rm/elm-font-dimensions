@@ -1,34 +1,24 @@
 <html>
 
-<head>
-    <style>
-        body,
-        html {
-            margin: 0;
-            padding: 0
-        }
-
-        input[type=file] {
-            position: absolute;
-            left: 30px;
-            top: 20px;
-            z-index: 1;
-        }
-    </style>
-</head>
+<head>Font Dimensions</head>
 
 <body>
-    <script src="https://cdn.jsdelivr.net/npm/opentype.js@latest/dist/opentype.min.js"></script>
+    <script src="assets/opentype.min.js"></script>
     <script src="/_compile/Main.elm"></script>
     <script>
-        var app = Elm.Main.fullscreen();
+        var app = Elm.FontDimensions.fullscreen();
+        var fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        document.body.appendChild(fileInput);
         document.body.addEventListener('change', function (e) {
+            // TODO: handle errors
             const files = e.target.files;
             if (files && files.length === 1) {
                 var bufferReader = new FileReader();
+                var fontFile = files[0];
                 bufferReader.onload = function (e) {
                     var buffer = e.target.result;
-                    var url = URL.createObjectURL(files[0]);
+                    var url = URL.createObjectURL(fontFile);
                     var font = opentype.parse(e.target.result);
                     var data = {
                         dimensions: font.tables.fvar.axes.map(function (d) {
@@ -40,15 +30,15 @@
                                 name: d.tag
                             }
                         }),
-                        url: url
+                        url: url,
+                        title: fontFile.name
                     };
                     app.ports.loadFont.send(data);
                 };
-                bufferReader.readAsArrayBuffer(files[0]);
+                bufferReader.readAsArrayBuffer(fontFile);
             }
         });
     </script>
-    <input type="file">
 </body>
 
 </html>

@@ -63,6 +63,15 @@ directions =
         , Vector3d.normalize (Vector3d.fromComponents ( 1, -1, 1 ))
         , Vector3d.normalize (Vector3d.fromComponents ( 1, 1, -1 ))
         , Vector3d.normalize (Vector3d.fromComponents ( -1, -1, -1 ))
+
+        -- TODO: better directions for 8+
+        , Vector3d.normalize (Vector3d.fromComponents ( 0, 1, 1 ))
+        , Vector3d.normalize (Vector3d.fromComponents ( 1, 0, 1 ))
+        , Vector3d.normalize (Vector3d.fromComponents ( 1, 1, 0 ))
+        , Vector3d.normalize (Vector3d.fromComponents ( 0, 2, 1 ))
+        , Vector3d.normalize (Vector3d.fromComponents ( 2, 0, 1 ))
+        , Vector3d.normalize (Vector3d.fromComponents ( 2, 1, 0 ))
+        , Vector3d.normalize (Vector3d.fromComponents ( 0, 1, 2 ))
         ]
 
 
@@ -77,6 +86,15 @@ colors =
         , "#f1b13b"
         , "#cccccc"
         , "#e4e4e3"
+
+        -- TODO: better colors for 8+
+        , "#2a2929"
+        , "#e63641"
+        , "#10a75c"
+        , "#10b4e8"
+        , "#ed68a3"
+        , "#cccc00"
+        , "#00e4e3"
         ]
 
 
