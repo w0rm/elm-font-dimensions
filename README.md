@@ -30,3 +30,7 @@ Tested to work for variable fonts with **less than 8 axes** in the latest **Chro
 # Running the demo locally
 
 `elm reactor` and then open http://localhost:8000/index.html
+
+# License
+
+[Mozilla Public License 2.0](cameea/LICENSE)
