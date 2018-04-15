@@ -2,7 +2,7 @@
     "version": "1.0.0",
     "summary": "Visualize variable fonts in the browser",
     "repository": "https://github.com/w0rm/elm-font-dimensions.git",
-    "license": "BSD3",
+    "license": "MPL-2.0",
     "source-directories": [
         ".",
         "camera/src"

@@ -33,4 +33,4 @@ Tested to work for variable fonts with **less than 8 axes** in the latest **Chro
 
 # License
 
-[Mozilla Public License 2.0](cameea/LICENSE)
+[Mozilla Public License 2.0](LICENSE)
