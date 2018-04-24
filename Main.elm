@@ -363,14 +363,7 @@ view model =
                 ]
                 (viewStructure model)
             , viewLetter model.dimensions model.text
-            , Html.div
-                [ HtmlAttributes.style
-                    [ ( "position", "absolute" )
-                    , ( "left", "30px" )
-                    , ( "top", "60px" )
-                    ]
-                ]
-                [ Html.text model.title ]
+            , viewInfo
             , Html.div
                 [ HtmlAttributes.style
                     [ ( "position", "absolute" )
@@ -383,6 +376,16 @@ view model =
                     (Decode.succeed Noop)
                 ]
                 [ Html.label
+                    [ HtmlAttributes.for "file"
+                    , HtmlAttributes.style
+                        [ ( "display", "block" )
+                        , ( "margin", "0 0 50px" )
+                        ]
+                    ]
+                    [ Html.text "Font: "
+                    , Html.em [] [ Html.text model.title ]
+                    ]
+                , Html.label
                     [ HtmlAttributes.for "dimensions"
                     , HtmlAttributes.style [ ( "display", "block" ) ]
                     ]
@@ -569,6 +572,37 @@ viewScaleSlider { number, color, distance, title } =
         ]
 
 
+viewInfo : Html Msg
+viewInfo =
+    Html.div
+        [ HtmlAttributes.style
+            [ ( "position", "absolute" )
+            , ( "left", "30px" )
+            , ( "top", "20px" )
+            ]
+        ]
+        [ Html.h1
+            [ HtmlAttributes.style [ ( "font-size", "120%" ) ]
+            ]
+            [ Html.text "Multidimensional"
+            , Html.br [] []
+            , Html.text "Axis Visualizer"
+            ]
+        , Html.p []
+            [ Html.text "Concept: Luc(as) de Groot, "
+            , Html.br [] []
+            , Html.a [ HtmlAttributes.href "http://lucasfonts.com" ] [ Html.text "LucasFonts.com" ]
+            ]
+        , Html.p []
+            [ Html.text "Code: Andrey Kuzmin, "
+            , Html.br [] []
+            , Html.a
+                [ HtmlAttributes.href "https://github.com/w0rm/elm-font-dimensions" ]
+                [ Html.text "open source on GitHub" ]
+            ]
+        ]
+
+
 viewStyle : String -> Html Msg
 viewStyle url =
     Html.node "style"
@@ -588,9 +622,10 @@ viewStyle url =
 
         input[type=file] {
             position: absolute;
-            left: 30px;
-            top: 20px;
+            right: 30px;
+            top: 60px;
             margin: 0;
+            width: 200px;
             z-index: 1;
         }
 

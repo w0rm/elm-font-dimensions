@@ -11,6 +11,7 @@
         var app = Elm.FontDimensions.fullscreen();
         var fileInput = document.createElement('input');
         fileInput.type = 'file';
+        fileInput.setAttribute('id', 'file');
         document.body.appendChild(fileInput);
         document.body.addEventListener('change', function (e) {
             // TODO: handle errors
