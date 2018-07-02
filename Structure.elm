@@ -1,9 +1,9 @@
-module Structure exposing (Structure, Dimension, LoadedDimension, structure, dimensions, sortLinesByDistanceToPoint)
+module Structure exposing (Dimension, LoadedDimension, Structure, dimensions, sortLinesByDistanceToPoint, structure)
 
-import OpenSolid.Point3d as Point3d exposing (Point3d)
-import OpenSolid.LineSegment3d as LineSegment3d exposing (LineSegment3d)
-import OpenSolid.Vector3d as Vector3d exposing (Vector3d)
 import Array exposing (Array)
+import LineSegment3d as LineSegment3d exposing (LineSegment3d)
+import Point3d as Point3d exposing (Point3d)
+import Vector3d as Vector3d exposing (Vector3d)
 
 
 type alias Structure =
@@ -154,28 +154,28 @@ structure dimensions n =
                 newStructure.value
                 activeDimensions
     in
-        { newStructure
-            | focalPoint = focalPoint
-            , value = Point3d.scaleAbout focalPoint scale3d currentValue
-            , points = List.map (\point -> { point | point = Point3d.scaleAbout focalPoint scale3d point.point }) newStructure.points
-            , lines = List.map (\line -> { line | line = LineSegment3d.scaleAbout focalPoint scale3d line.line }) newStructure.lines
-            , coordinates =
-                List.map
-                    (\{ number, color, distance, direction, value, min, max } ->
-                        { line =
-                            LineSegment3d.from
-                                (Point3d.translateBy
-                                    (Vector3d.scaleBy (-distance * (value - min) / (max - min)) direction)
-                                    currentValue
-                                )
+    { newStructure
+        | focalPoint = focalPoint
+        , value = Point3d.scaleAbout focalPoint scale3d currentValue
+        , points = List.map (\point -> { point | point = Point3d.scaleAbout focalPoint scale3d point.point }) newStructure.points
+        , lines = List.map (\line -> { line | line = LineSegment3d.scaleAbout focalPoint scale3d line.line }) newStructure.lines
+        , coordinates =
+            List.map
+                (\{ number, color, distance, direction, value, min, max } ->
+                    { line =
+                        LineSegment3d.from
+                            (Point3d.translateBy
+                                (Vector3d.scaleBy (-distance * (value - min) / (max - min)) direction)
                                 currentValue
-                                |> LineSegment3d.scaleAbout focalPoint scale3d
-                        , number = number
-                        , color = color
-                        }
-                    )
-                    activeDimensions
-        }
+                            )
+                            currentValue
+                            |> LineSegment3d.scaleAbout focalPoint scale3d
+                    , number = number
+                    , color = color
+                    }
+                )
+                activeDimensions
+    }
 
 
 initial : Structure

@@ -1,25 +1,26 @@
 port module FontDimensions exposing (main)
 
+import Camera3d exposing (Camera3d)
+import Circle2d
+import Direction2d
+import Frame2d exposing (Frame2d)
+import Geometry.Svg as Svg
 import Html exposing (Html)
+import Html.Attributes as HtmlAttributes
 import Html.Events as Events
+import Json.Decode as Decode
+import LineSegment2d exposing (LineSegment2d)
+import LineSegment3d.Projection as LineSegment3d
+import Mouse
+import Point2d exposing (Point2d)
+import Point3d.Projection as Point3d
+import SketchPlane3d exposing (SketchPlane3d)
+import Structure exposing (Dimension, LoadedDimension, Structure)
 import Svg exposing (Svg)
 import Svg.Attributes as SvgAttributes
-import Html.Attributes as HtmlAttributes
-import OpenSolid.Svg as Svg
-import OpenSolid.LineSegment2d as LineSegment2d exposing (LineSegment2d)
-import OpenSolid.Direction2d as Direction2d
-import OpenSolid.SketchPlane3d as SketchPlane3d exposing (SketchPlane3d)
-import OpenSolid.Frame2d as Frame2d exposing (Frame2d)
-import OpenSolid.Point2d as Point2d exposing (Point2d)
-import Window
 import Task
-import Mouse
-import Structure exposing (Structure, Dimension, LoadedDimension)
-import Json.Decode as Decode
-import OpenSolid.Camera as Camera exposing (Camera)
-import OpenSolid.Viewpoint as Viewpoint exposing (Viewpoint)
-import OpenSolid.Camera.LineSegment3d as LineSegment3d
-import OpenSolid.Camera.Point3d as Point3d
+import Viewpoint3d exposing (Viewpoint3d)
+import Window
 
 
 port loadFont :
@@ -133,15 +134,15 @@ update msg model =
                 dimensions =
                     Structure.dimensions font.dimensions
             in
-                ( { model
-                    | url = font.url
-                    , title = font.title
-                    , dimensions = dimensions
-                    , dimensionsCount = List.length dimensions
-                    , structure = Structure.structure dimensions (List.length dimensions)
-                  }
-                , Cmd.none
-                )
+            ( { model
+                | url = font.url
+                , title = font.title
+                , dimensions = dimensions
+                , dimensionsCount = List.length dimensions
+                , structure = Structure.structure dimensions (List.length dimensions)
+              }
+            , Cmd.none
+            )
 
         Noop ->
             ( model, Cmd.none )
@@ -153,17 +154,18 @@ update msg model =
                         (\dimension ->
                             if dimension.number == number then
                                 { dimension | value = value }
+
                             else
                                 dimension
                         )
                         model.dimensions
             in
-                ( { model
-                    | dimensions = newDimensions
-                    , structure = Structure.structure newDimensions model.dimensionsCount
-                  }
-                , Cmd.none
-                )
+            ( { model
+                | dimensions = newDimensions
+                , structure = Structure.structure newDimensions model.dimensionsCount
+              }
+            , Cmd.none
+            )
 
         ChangeDistance number distance ->
             let
@@ -172,17 +174,18 @@ update msg model =
                         (\dimension ->
                             if dimension.number == number then
                                 { dimension | distance = distance }
+
                             else
                                 dimension
                         )
                         model.dimensions
             in
-                ( { model
-                    | dimensions = newDimensions
-                    , structure = Structure.structure newDimensions model.dimensionsCount
-                  }
-                , Cmd.none
-                )
+            ( { model
+                | dimensions = newDimensions
+                , structure = Structure.structure newDimensions model.dimensionsCount
+              }
+            , Cmd.none
+            )
 
         ChangeDimensions dimensionsCount ->
             ( { model
@@ -217,14 +220,14 @@ update msg model =
                         deltaY =
                             toFloat y - Point2d.yCoordinate source
                     in
-                        ( { model
-                            | sketchPlane =
-                                model.sketchPlane
-                                    |> SketchPlane3d.rotateAroundOwn SketchPlane3d.xAxis (-0.0001 * deltaY)
-                                    |> SketchPlane3d.rotateAroundOwn SketchPlane3d.yAxis (-0.0001 * deltaX)
-                          }
-                        , Cmd.none
-                        )
+                    ( { model
+                        | sketchPlane =
+                            model.sketchPlane
+                                |> SketchPlane3d.rotateAroundOwn SketchPlane3d.xAxis (-0.0001 * deltaY)
+                                |> SketchPlane3d.rotateAroundOwn SketchPlane3d.yAxis (-0.0001 * deltaX)
+                      }
+                    , Cmd.none
+                    )
 
                 Nothing ->
                     ( model, Cmd.none )
@@ -259,14 +262,14 @@ viewStructure model =
             SketchPlane3d.yDirection model.sketchPlane
 
         viewpoint =
-            Viewpoint.lookAt
+            Viewpoint3d.lookAt
                 { eyePoint = eyePoint
                 , focalPoint = model.structure.focalPoint
                 , upDirection = upDirection
                 }
 
         camera =
-            Camera.perspective
+            Camera3d.perspective
                 { viewpoint = viewpoint
                 , verticalFieldOfView = degrees 30
                 , nearClipDistance = 0.1
@@ -310,15 +313,16 @@ viewStructure model =
                 )
 
         mapPoint { color, point } =
-            Svg.point2dWith { radius = 10 - toFloat model.dimensionsCount }
+            Svg.circle2d
                 [ SvgAttributes.fill color ]
                 (point
                     |> point3dToScreenSpace
                     |> Point2d.scaleAbout screenCenter scale2d
+                    |> Circle2d.withRadius (10 - toFloat model.dimensionsCount)
                 )
 
         mapValue point =
-            Svg.point2dWith { radius = 10 - toFloat model.dimensionsCount }
+            Svg.circle2d
                 [ SvgAttributes.fill "#fff"
                 , SvgAttributes.stroke "#000"
                 , SvgAttributes.strokeWidth "2"
@@ -326,128 +330,129 @@ viewStructure model =
                 (point
                     |> point3dToScreenSpace
                     |> Point2d.scaleAbout screenCenter scale2d
+                    |> Circle2d.withRadius (10 - toFloat model.dimensionsCount)
                 )
     in
-        List.concat
-            [ model.structure.coordinates
-                |> List.map mapCoordinate
-            , model.structure.lines
-                |> Structure.sortLinesByDistanceToPoint eyePoint
-                |> List.map mapLine
-            , List.map mapPoint model.structure.points
-            , [ mapValue model.structure.value ]
-            ]
+    List.concat
+        [ model.structure.coordinates
+            |> List.map mapCoordinate
+        , model.structure.lines
+            |> Structure.sortLinesByDistanceToPoint eyePoint
+            |> List.map mapLine
+        , List.map mapPoint model.structure.points
+        , [ mapValue model.structure.value ]
+        ]
 
 
 view : Model -> Html Msg
 view model =
     let
         centerFrame =
-            Frame2d.with
-                { originPoint = Point2d.fromCoordinates ( -model.width / 2, -model.height / 2 )
-                , xDirection = Direction2d.positiveX
-                }
+            Frame2d.withXDirection
+                Direction2d.positiveX
+                (Point2d.fromCoordinates ( -model.width / 2, -model.height / 2 ))
     in
-        Html.div
+    Html.div
+        [ HtmlAttributes.style
+            [ ( "position", "absolute" )
+            , ( "width", "100%" )
+            , ( "height", "100%" )
+            ]
+        ]
+        [ viewStyle model.url
+        , Svg.svg
+            [ SvgAttributes.width (toString model.width)
+            , SvgAttributes.height (toString model.height)
+            , HtmlAttributes.style [ ( "display", "block" ) ]
+            ]
+            (viewStructure model)
+        , viewLetter model.dimensions model.text
+        , viewInfo
+        , Html.div
             [ HtmlAttributes.style
                 [ ( "position", "absolute" )
-                , ( "width", "100%" )
-                , ( "height", "100%" )
+                , ( "right", "30px" )
+                , ( "width", "200px" )
+                , ( "top", "30px" )
                 ]
+            , Events.onWithOptions "mousedown"
+                { stopPropagation = True, preventDefault = False }
+                (Decode.succeed Noop)
             ]
-            [ viewStyle model.url
-            , Svg.svg
-                [ SvgAttributes.width (toString model.width)
-                , SvgAttributes.height (toString model.height)
+            [ Html.label
+                [ HtmlAttributes.for "file"
+                , HtmlAttributes.style
+                    [ ( "display", "block" )
+                    , ( "margin", "0 0 50px" )
+                    ]
+                ]
+                [ Html.text "Font: "
+                , Html.em [] [ Html.text model.title ]
+                ]
+            , Html.label
+                [ HtmlAttributes.for "dimensions"
                 , HtmlAttributes.style [ ( "display", "block" ) ]
                 ]
-                (viewStructure model)
-            , viewLetter model.dimensions model.text
-            , viewInfo
+                [ Html.text ("Dimensions: " ++ toString model.dimensionsCount)
+                ]
+            , Html.input
+                [ HtmlAttributes.id "dimensions"
+                , HtmlAttributes.type_ "range"
+                , HtmlAttributes.style [ ( "color", "#909090" ) ]
+                , Events.onInput (String.toInt >> Result.withDefault 0 >> ChangeDimensions)
+                , HtmlAttributes.min "0"
+                , HtmlAttributes.max (List.length model.dimensions |> toString)
+                , HtmlAttributes.step "1"
+                , HtmlAttributes.value (toString model.dimensionsCount)
+                ]
+                []
+            , Html.label
+                [ HtmlAttributes.for "perspective"
+                , HtmlAttributes.style [ ( "display", "block" ) ]
+                ]
+                [ Html.text "Perspective"
+                ]
+            , Html.input
+                [ HtmlAttributes.id "perspective"
+                , HtmlAttributes.type_ "range"
+                , HtmlAttributes.style [ ( "color", "#909090" ) ]
+                , Events.onInput (String.toFloat >> Result.withDefault 0 >> ChangePerspective)
+                , HtmlAttributes.min "0"
+                , HtmlAttributes.max "10"
+                , HtmlAttributes.step "0.5"
+                , HtmlAttributes.value (toString model.perspective)
+                ]
+                []
             , Html.div
                 [ HtmlAttributes.style
-                    [ ( "position", "absolute" )
-                    , ( "right", "30px" )
-                    , ( "width", "200px" )
-                    , ( "top", "30px" )
-                    ]
-                , Events.onWithOptions "mousedown"
-                    { stopPropagation = True, preventDefault = False }
-                    (Decode.succeed Noop)
-                ]
-                [ Html.label
-                    [ HtmlAttributes.for "file"
-                    , HtmlAttributes.style
-                        [ ( "display", "block" )
-                        , ( "margin", "0 0 50px" )
-                        ]
-                    ]
-                    [ Html.text "Font: "
-                    , Html.em [] [ Html.text model.title ]
-                    ]
-                , Html.label
-                    [ HtmlAttributes.for "dimensions"
-                    , HtmlAttributes.style [ ( "display", "block" ) ]
-                    ]
-                    [ Html.text ("Dimensions: " ++ toString model.dimensionsCount)
-                    ]
-                , Html.input
-                    [ HtmlAttributes.id "dimensions"
-                    , HtmlAttributes.type_ "range"
-                    , HtmlAttributes.style [ ( "color", "#909090" ) ]
-                    , Events.onInput (String.toInt >> Result.withDefault 0 >> ChangeDimensions)
-                    , HtmlAttributes.min "0"
-                    , HtmlAttributes.max (List.length model.dimensions |> toString)
-                    , HtmlAttributes.step "1"
-                    , HtmlAttributes.value (toString model.dimensionsCount)
-                    ]
-                    []
-                , Html.label
-                    [ HtmlAttributes.for "perspective"
-                    , HtmlAttributes.style [ ( "display", "block" ) ]
-                    ]
-                    [ Html.text "Perspective"
-                    ]
-                , Html.input
-                    [ HtmlAttributes.id "perspective"
-                    , HtmlAttributes.type_ "range"
-                    , HtmlAttributes.style [ ( "color", "#909090" ) ]
-                    , Events.onInput (String.toFloat >> Result.withDefault 0 >> ChangePerspective)
-                    , HtmlAttributes.min "0"
-                    , HtmlAttributes.max "10"
-                    , HtmlAttributes.step "0.5"
-                    , HtmlAttributes.value (toString model.perspective)
-                    ]
-                    []
-                , Html.div
-                    [ HtmlAttributes.style
-                        [ ( "border-bottom", "1px solid #909090" )
-                        , ( "height", "35px" )
-                        , ( "line-height", "35px" )
-                        , ( "margin", "10px 0" )
-                        , ( "display"
-                          , if model.dimensionsCount == 0 then
-                                "none"
-                            else
-                                "block"
-                          )
-                        ]
-                    ]
-                    (List.map (viewTab model.tab) tabs)
-                , Html.div
-                    []
-                    (List.map
-                        (case model.tab of
-                            Values ->
-                                viewValueSlider
+                    [ ( "border-bottom", "1px solid #909090" )
+                    , ( "height", "35px" )
+                    , ( "line-height", "35px" )
+                    , ( "margin", "10px 0" )
+                    , ( "display"
+                      , if model.dimensionsCount == 0 then
+                            "none"
 
-                            Scales ->
-                                viewScaleSlider
-                        )
-                        (List.take model.dimensionsCount model.dimensions)
-                    )
+                        else
+                            "block"
+                      )
+                    ]
                 ]
+                (List.map (viewTab model.tab) tabs)
+            , Html.div
+                []
+                (List.map
+                    (case model.tab of
+                        Values ->
+                            viewValueSlider
+
+                        Scales ->
+                            viewScaleSlider
+                    )
+                    (List.take model.dimensionsCount model.dimensions)
+                )
             ]
+        ]
 
 
 viewTab : Tab -> ( String, Tab ) -> Html Msg
@@ -464,6 +469,7 @@ viewTab activeTab ( title, tab ) =
                 ]
             ]
             [ Html.text title ]
+
     else
         Html.button
             [ HtmlAttributes.style
@@ -493,33 +499,33 @@ viewLetter valuesAndScales text =
                     )
                 |> String.join ", "
     in
-        Html.div
-            [ HtmlAttributes.style
-                [ ( "position", "absolute" )
-                , ( "bottom", "0" )
-                , ( "left", "0" )
-                , ( "max-width", "100%" )
-                , ( "max-height", "100%" )
-                , ( "box-sizing", "border-box" )
-                , ( "padding", "0 50px" )
-                , ( "outline", "none" )
-                , ( "font-family", "'Voto Serif GX'" )
-                , ( "font-size", "200px" )
-                , ( "line-height", "1.5" )
-                , ( "text-rendering", "optimizeLegibility" )
-                , ( "caret-color", "#909090" )
-                , ( "font-variation-settings", fontVariationSettings )
-                ]
-            , Events.onWithOptions "mousedown"
-                { stopPropagation = True
-                , preventDefault = False
-                }
-                (Decode.succeed Noop)
-            , HtmlAttributes.spellcheck False
-            , HtmlAttributes.autocomplete False
-            , HtmlAttributes.contenteditable True
+    Html.div
+        [ HtmlAttributes.style
+            [ ( "position", "absolute" )
+            , ( "bottom", "0" )
+            , ( "left", "0" )
+            , ( "max-width", "100%" )
+            , ( "max-height", "100%" )
+            , ( "box-sizing", "border-box" )
+            , ( "padding", "0 50px" )
+            , ( "outline", "none" )
+            , ( "font-family", "'Voto Serif GX'" )
+            , ( "font-size", "200px" )
+            , ( "line-height", "1.5" )
+            , ( "text-rendering", "optimizeLegibility" )
+            , ( "caret-color", "#909090" )
+            , ( "font-variation-settings", fontVariationSettings )
             ]
-            [ Html.text text ]
+        , Events.onWithOptions "mousedown"
+            { stopPropagation = True
+            , preventDefault = False
+            }
+            (Decode.succeed Noop)
+        , HtmlAttributes.spellcheck False
+        , HtmlAttributes.autocomplete False
+        , HtmlAttributes.contenteditable True
+        ]
+        [ Html.text text ]
 
 
 viewValueSlider : Dimension -> Html Msg
