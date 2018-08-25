@@ -122,10 +122,10 @@ sortLinesByDistanceToPoint point =
 
 
 structure : List Dimension -> Int -> Structure
-structure dimensions n =
+structure dimensions_ n =
     let
         activeDimensions =
-            List.take n dimensions
+            List.take n dimensions_
 
         newStructure =
             structureHelp activeDimensions initial
@@ -194,13 +194,13 @@ initial =
 
 
 structureHelp : List Dimension -> Structure -> Structure
-structureHelp dimensions structure =
-    case dimensions of
+structureHelp dimensions_ structure_ =
+    case dimensions_ of
         [] ->
-            structure
+            structure_
 
         dimension :: restDimensions ->
-            structureHelp restDimensions (addDimension dimension structure)
+            structureHelp restDimensions (addDimension dimension structure_)
 
 
 addDimension : Dimension -> Structure -> Structure

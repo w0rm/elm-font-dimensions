@@ -1,5 +1,8 @@
-port module FontDimensions exposing (main)
+port module Main exposing (main)
 
+import Browser
+import Browser.Dom exposing (getViewport)
+import Browser.Events exposing (onMouseDown, onMouseMove, onMouseUp, onResize)
 import Camera3d exposing (Camera3d)
 import Circle2d
 import Direction2d
@@ -8,10 +11,9 @@ import Geometry.Svg as Svg
 import Html exposing (Html)
 import Html.Attributes as HtmlAttributes
 import Html.Events as Events
-import Json.Decode as Decode
+import Json.Decode as Decode exposing (Decoder, Value)
 import LineSegment2d exposing (LineSegment2d)
 import LineSegment3d.Projection as LineSegment3d
-import Mouse
 import Point2d exposing (Point2d)
 import Point3d.Projection as Point3d
 import SketchPlane3d exposing (SketchPlane3d)
@@ -20,7 +22,6 @@ import Svg exposing (Svg)
 import Svg.Attributes as SvgAttributes
 import Task
 import Viewpoint3d exposing (Viewpoint3d)
-import Window
 
 
 port loadFont :
@@ -28,10 +29,10 @@ port loadFont :
     -> Sub msg
 
 
-main : Program Never Model Msg
+main : Program Value Model Msg
 main =
-    Html.program
-        { init = init
+    Browser.element
+        { init = always init
         , view = view
         , update = update
         , subscriptions = subscriptions
@@ -108,15 +109,15 @@ init =
       , url = "assets/VotoSerifGX.latin1.ttf"
       , title = "VotoSerifGX.latin1.ttf"
       }
-    , Task.perform Resize Window.size
+    , Task.perform (\{ viewport } -> Resize viewport.width viewport.height) getViewport
     )
 
 
 type Msg
-    = Resize Window.Size
-    | MouseDown Mouse.Position
-    | MouseUp Mouse.Position
-    | MouseMove Mouse.Position
+    = Resize Float Float
+    | MouseDown Float Float
+    | MouseUp
+    | MouseMove Float Float
     | ChangeDimensions Int
     | ChangeValue Int Float
     | ChangeDistance Int Float
@@ -201,24 +202,24 @@ update msg model =
         ChangePerspective perspective ->
             ( { model | perspective = perspective }, Cmd.none )
 
-        Resize { width, height } ->
-            ( { model | width = toFloat width, height = toFloat height }, Cmd.none )
+        Resize width height ->
+            ( { model | width = width, height = height }, Cmd.none )
 
-        MouseDown { x, y } ->
-            ( { model | mouse = Just (Point2d.fromCoordinates ( toFloat x, toFloat y )) }, Cmd.none )
+        MouseDown x y ->
+            ( { model | mouse = Just (Point2d.fromCoordinates ( x, y )) }, Cmd.none )
 
-        MouseUp _ ->
+        MouseUp ->
             ( { model | mouse = Nothing }, Cmd.none )
 
-        MouseMove { x, y } ->
+        MouseMove x y ->
             case model.mouse of
                 Just source ->
                     let
                         deltaX =
-                            toFloat x - Point2d.xCoordinate source
+                            x - Point2d.xCoordinate source
 
                         deltaY =
-                            toFloat y - Point2d.yCoordinate source
+                            y - Point2d.yCoordinate source
                     in
                     ( { model
                         | sketchPlane =
@@ -236,14 +237,21 @@ update msg model =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        [ Window.resizes Resize
-        , Mouse.downs MouseDown
+        [ onResize (\w h -> Resize (toFloat w) (toFloat h))
+        , onMouseDown (mousePosition MouseDown)
         , model.mouse
-            |> Maybe.map (always (Mouse.moves MouseMove))
+            |> Maybe.map (always (onMouseMove (mousePosition MouseMove)))
             |> Maybe.withDefault Sub.none
-        , Mouse.ups MouseUp
+        , onMouseUp (Decode.succeed MouseUp)
         , loadFont LoadFont
         ]
+
+
+mousePosition : (Float -> Float -> Msg) -> Decoder Msg
+mousePosition coordsToMsg =
+    Decode.map2 coordsToMsg
+        (Decode.field "pageX" Decode.float)
+        (Decode.field "pageY" Decode.float)
 
 
 viewStructure : Model -> List (Svg Msg)
@@ -291,7 +299,7 @@ viewStructure model =
             Point2d.fromCoordinates ( model.width / 2, model.height / 2 )
 
         strokeWidth =
-            SvgAttributes.strokeWidth (toString (max 1 (8 - toFloat model.dimensionsCount)))
+            SvgAttributes.strokeWidth (String.fromFloat (max 1 (8 - toFloat model.dimensionsCount)))
 
         mapLine { color, line } =
             Svg.lineSegment2d [ SvgAttributes.stroke color, strokeWidth ]
@@ -353,90 +361,80 @@ view model =
                 (Point2d.fromCoordinates ( -model.width / 2, -model.height / 2 ))
     in
     Html.div
-        [ HtmlAttributes.style
-            [ ( "position", "absolute" )
-            , ( "width", "100%" )
-            , ( "height", "100%" )
-            ]
+        [ HtmlAttributes.style "position" "absolute"
+        , HtmlAttributes.style "width" "100%"
+        , HtmlAttributes.style "height" "100%"
         ]
         [ viewStyle model.url
         , Svg.svg
-            [ SvgAttributes.width (toString model.width)
-            , SvgAttributes.height (toString model.height)
-            , HtmlAttributes.style [ ( "display", "block" ) ]
+            [ SvgAttributes.width (String.fromFloat model.width)
+            , SvgAttributes.height (String.fromFloat model.height)
+            , HtmlAttributes.style "display" "block"
             ]
             (viewStructure model)
         , viewLetter model.dimensions model.text
         , viewInfo
         , Html.div
-            [ HtmlAttributes.style
-                [ ( "position", "absolute" )
-                , ( "right", "30px" )
-                , ( "width", "200px" )
-                , ( "top", "30px" )
-                ]
-            , Events.onWithOptions "mousedown"
-                { stopPropagation = True, preventDefault = False }
-                (Decode.succeed Noop)
+            [ HtmlAttributes.style "position" "absolute"
+            , HtmlAttributes.style "right" "30px"
+            , HtmlAttributes.style "width" "200px"
+            , HtmlAttributes.style "top" "30px"
+            , Events.stopPropagationOn "mousedown" (Decode.succeed ( Noop, True ))
             ]
             [ Html.label
                 [ HtmlAttributes.for "file"
-                , HtmlAttributes.style
-                    [ ( "display", "block" )
-                    , ( "margin", "0 0 50px" )
-                    ]
+                , HtmlAttributes.style "display" "block"
+                , HtmlAttributes.style "margin" "0 0 50px"
                 ]
                 [ Html.text "Font: "
                 , Html.em [] [ Html.text model.title ]
                 ]
             , Html.label
                 [ HtmlAttributes.for "dimensions"
-                , HtmlAttributes.style [ ( "display", "block" ) ]
+                , HtmlAttributes.style "display" "block"
                 ]
-                [ Html.text ("Dimensions: " ++ toString model.dimensionsCount)
+                [ Html.text ("Dimensions: " ++ String.fromInt model.dimensionsCount)
                 ]
             , Html.input
                 [ HtmlAttributes.id "dimensions"
                 , HtmlAttributes.type_ "range"
-                , HtmlAttributes.style [ ( "color", "#909090" ) ]
-                , Events.onInput (String.toInt >> Result.withDefault 0 >> ChangeDimensions)
+                , HtmlAttributes.style "color" "#909090"
+                , Events.onInput (String.toInt >> Maybe.withDefault 0 >> ChangeDimensions)
                 , HtmlAttributes.min "0"
-                , HtmlAttributes.max (List.length model.dimensions |> toString)
+                , HtmlAttributes.max (List.length model.dimensions |> String.fromInt)
                 , HtmlAttributes.step "1"
-                , HtmlAttributes.value (toString model.dimensionsCount)
+                , HtmlAttributes.value (String.fromInt model.dimensionsCount)
                 ]
                 []
             , Html.label
                 [ HtmlAttributes.for "perspective"
-                , HtmlAttributes.style [ ( "display", "block" ) ]
+                , HtmlAttributes.style "display" "block"
                 ]
                 [ Html.text "Perspective"
                 ]
             , Html.input
                 [ HtmlAttributes.id "perspective"
                 , HtmlAttributes.type_ "range"
-                , HtmlAttributes.style [ ( "color", "#909090" ) ]
-                , Events.onInput (String.toFloat >> Result.withDefault 0 >> ChangePerspective)
+                , HtmlAttributes.style "color" "#909090"
+                , Events.onInput (String.toFloat >> Maybe.withDefault 0 >> ChangePerspective)
                 , HtmlAttributes.min "0"
                 , HtmlAttributes.max "10"
                 , HtmlAttributes.step "0.5"
-                , HtmlAttributes.value (toString model.perspective)
+                , HtmlAttributes.value (String.fromFloat model.perspective)
                 ]
                 []
             , Html.div
-                [ HtmlAttributes.style
-                    [ ( "border-bottom", "1px solid #909090" )
-                    , ( "height", "35px" )
-                    , ( "line-height", "35px" )
-                    , ( "margin", "10px 0" )
-                    , ( "display"
-                      , if model.dimensionsCount == 0 then
-                            "none"
+                [ HtmlAttributes.style "border-bottom" "1px solid #909090"
+                , HtmlAttributes.style "height" "35px"
+                , HtmlAttributes.style "line-height" "35px"
+                , HtmlAttributes.style "margin" "10px 0"
+                , HtmlAttributes.style "display"
+                    (if model.dimensionsCount == 0 then
+                        "none"
 
-                        else
-                            "block"
-                      )
-                    ]
+                     else
+                        "block"
+                    )
                 ]
                 (List.map (viewTab model.tab) tabs)
             , Html.div
@@ -459,30 +457,26 @@ viewTab : Tab -> ( String, Tab ) -> Html Msg
 viewTab activeTab ( title, tab ) =
     if activeTab == tab then
         Html.span
-            [ HtmlAttributes.style
-                [ ( "border", "1px solid #909090" )
-                , ( "border-bottom", "none" )
-                , ( "font", "inherit" )
-                , ( "display", "inline-block" )
-                , ( "padding", "0 10px" )
-                , ( "background", "#fff" )
-                ]
+            [ HtmlAttributes.style "border" "1px solid #909090"
+            , HtmlAttributes.style "border-bottom" "none"
+            , HtmlAttributes.style "font" "inherit"
+            , HtmlAttributes.style "display" "inline-block"
+            , HtmlAttributes.style "padding" "0 10px"
+            , HtmlAttributes.style "background" "#fff"
             ]
             [ Html.text title ]
 
     else
         Html.button
-            [ HtmlAttributes.style
-                [ ( "border", "1px solid transparent" )
-                , ( "border-bottom", "none" )
-                , ( "background", "transparent" )
-                , ( "display", "inline-block" )
-                , ( "color", "#909090" )
-                , ( "outline", "none" )
-                , ( "font", "inherit" )
-                , ( "padding", "0 10px" )
-                , ( "cursor", "pointer" )
-                ]
+            [ HtmlAttributes.style "border" "1px solid transparent"
+            , HtmlAttributes.style "border-bottom" "none"
+            , HtmlAttributes.style "background" "transparent"
+            , HtmlAttributes.style "display" "inline-block"
+            , HtmlAttributes.style "color" "#909090"
+            , HtmlAttributes.style "outline" "none"
+            , HtmlAttributes.style "font" "inherit"
+            , HtmlAttributes.style "padding" "0 10px"
+            , HtmlAttributes.style "cursor" "pointer"
             , Events.onClick (ChangeTab tab)
             ]
             [ Html.text title ]
@@ -495,32 +489,26 @@ viewLetter valuesAndScales text =
             valuesAndScales
                 |> List.map
                     (\{ value, name } ->
-                        "'" ++ name ++ "' " ++ toString value
+                        "'" ++ name ++ "' " ++ String.fromFloat value
                     )
                 |> String.join ", "
     in
     Html.div
-        [ HtmlAttributes.style
-            [ ( "position", "absolute" )
-            , ( "bottom", "0" )
-            , ( "left", "0" )
-            , ( "max-width", "100%" )
-            , ( "max-height", "100%" )
-            , ( "box-sizing", "border-box" )
-            , ( "padding", "0 50px" )
-            , ( "outline", "none" )
-            , ( "font-family", "'Voto Serif GX'" )
-            , ( "font-size", "200px" )
-            , ( "line-height", "1.5" )
-            , ( "text-rendering", "optimizeLegibility" )
-            , ( "caret-color", "#909090" )
-            , ( "font-variation-settings", fontVariationSettings )
-            ]
-        , Events.onWithOptions "mousedown"
-            { stopPropagation = True
-            , preventDefault = False
-            }
-            (Decode.succeed Noop)
+        [ HtmlAttributes.style "position" "absolute"
+        , HtmlAttributes.style "bottom" "0"
+        , HtmlAttributes.style "left" "0"
+        , HtmlAttributes.style "max-width" "100%"
+        , HtmlAttributes.style "max-height" "100%"
+        , HtmlAttributes.style "box-sizing" "border-box"
+        , HtmlAttributes.style "padding" "0 50px"
+        , HtmlAttributes.style "outline" "none"
+        , HtmlAttributes.style "font-family" "'Voto Serif GX'"
+        , HtmlAttributes.style "font-size" "200px"
+        , HtmlAttributes.style "line-height" "1.5"
+        , HtmlAttributes.style "text-rendering" "optimizeLegibility"
+        , HtmlAttributes.style "caret-color" "#909090"
+        , HtmlAttributes.style "font-variation-settings" fontVariationSettings
+        , Events.stopPropagationOn "mousedown" (Decode.succeed ( Noop, True ))
         , HtmlAttributes.spellcheck False
         , HtmlAttributes.autocomplete False
         , HtmlAttributes.contenteditable True
@@ -533,21 +521,21 @@ viewValueSlider { number, color, value, title, min, max, step } =
     Html.div []
         [ Html.label
             [ HtmlAttributes.for title
-            , HtmlAttributes.style [ ( "display", "block" ) ]
+            , HtmlAttributes.style "display" "block"
             ]
-            [ Html.text ("Axis " ++ toString (number + 1) ++ " ")
+            [ Html.text ("Axis " ++ String.fromInt (number + 1) ++ " ")
             , Html.em [] [ Html.text title ]
-            , Html.text (" = " ++ toString (round value))
+            , Html.text (" = " ++ String.fromInt (round value))
             ]
         , Html.input
             [ HtmlAttributes.id title
             , HtmlAttributes.type_ "range"
-            , HtmlAttributes.style [ ( "color", color ) ]
-            , Events.onInput (String.toFloat >> Result.withDefault 0 >> ChangeValue number)
-            , HtmlAttributes.min (toString min)
-            , HtmlAttributes.max (toString max)
+            , HtmlAttributes.style "color" color
+            , Events.onInput (String.toFloat >> Maybe.withDefault 0 >> ChangeValue number)
+            , HtmlAttributes.min (String.fromFloat min)
+            , HtmlAttributes.max (String.fromFloat max)
             , HtmlAttributes.step "1"
-            , HtmlAttributes.value (toString value)
+            , HtmlAttributes.value (String.fromFloat value)
             ]
             []
         ]
@@ -558,21 +546,21 @@ viewScaleSlider { number, color, distance, title } =
     Html.div []
         [ Html.label
             [ HtmlAttributes.for title
-            , HtmlAttributes.style [ ( "display", "block" ) ]
+            , HtmlAttributes.style "display" "block"
             ]
-            [ Html.text ("Axis " ++ toString (number + 1) ++ " ")
+            [ Html.text ("Axis " ++ String.fromInt (number + 1) ++ " ")
             , Html.em [] [ Html.text title ]
-            , Html.text (" = " ++ toString (toFloat (round (distance * 1000)) / 1000))
+            , Html.text (" = " ++ String.fromFloat (toFloat (round (distance * 1000)) / 1000))
             ]
         , Html.input
             [ HtmlAttributes.id title
             , HtmlAttributes.type_ "range"
-            , HtmlAttributes.style [ ( "color", color ) ]
-            , Events.onInput (String.toFloat >> Result.withDefault 0 >> ChangeDistance number)
+            , HtmlAttributes.style "color" color
+            , Events.onInput (String.toFloat >> Maybe.withDefault 0 >> ChangeDistance number)
             , HtmlAttributes.min "0"
             , HtmlAttributes.max "50"
             , HtmlAttributes.step "0.1"
-            , HtmlAttributes.value (toString distance)
+            , HtmlAttributes.value (String.fromFloat distance)
             ]
             []
         ]
@@ -581,14 +569,12 @@ viewScaleSlider { number, color, distance, title } =
 viewInfo : Html Msg
 viewInfo =
     Html.div
-        [ HtmlAttributes.style
-            [ ( "position", "absolute" )
-            , ( "left", "30px" )
-            , ( "top", "20px" )
-            ]
+        [ HtmlAttributes.style "position" "absolute"
+        , HtmlAttributes.style "left" "30px"
+        , HtmlAttributes.style "top" "20px"
         ]
         [ Html.h1
-            [ HtmlAttributes.style [ ( "font-size", "120%" ) ]
+            [ HtmlAttributes.style "font-size" "120%"
             ]
             [ Html.text "Multidimensional"
             , Html.br [] []
