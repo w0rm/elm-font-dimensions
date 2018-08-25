@@ -1,0 +1,50 @@
+<html>
+
+<head>
+    <title>Font Dimensions</title>
+</head>
+
+<body>
+    <div id="elm"></div>
+    <script src="assets/opentype.min.js"></script>
+    <script src="assets/elm.js"></script>
+    <script>
+        var app = Elm.Main.init({
+            node: document.getElementById('elm')
+        });
+        var fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.setAttribute('id', 'file');
+        document.body.appendChild(fileInput);
+        document.body.addEventListener('change', function (e) {
+            // TODO: handle errors
+            const files = e.target.files;
+            if (files && files.length === 1) {
+                var bufferReader = new FileReader();
+                var fontFile = files[0];
+                bufferReader.onload = function (e) {
+                    var buffer = e.target.result;
+                    var url = URL.createObjectURL(fontFile);
+                    var font = opentype.parse(e.target.result);
+                    var data = {
+                        dimensions: font.tables.fvar.axes.map(function (d) {
+                            return {
+                                value: d.defaultValue,
+                                min: d.minValue,
+                                max: d.maxValue,
+                                title: d.name.en,
+                                name: d.tag
+                            }
+                        }),
+                        url: url,
+                        title: fontFile.name
+                    };
+                    app.ports.loadFont.send(data);
+                };
+                bufferReader.readAsArrayBuffer(fontFile);
+            }
+        });
+    </script>
+</body>
+
+</html>
