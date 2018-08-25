@@ -5,10 +5,13 @@
 </head>
 
 <body>
+    <div id="elm"></div>
     <script src="assets/opentype.min.js"></script>
-    <script src="/_compile/Main.elm"></script>
+    <script src="assets/elm.js"></script>
     <script>
-        var app = Elm.FontDimensions.fullscreen();
+        var app = Elm.Main.init({
+            node: document.getElementById('elm')
+        });
         var fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.setAttribute('id', 'file');

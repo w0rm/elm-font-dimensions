@@ -29,7 +29,9 @@ Tested to work for variable fonts with **less than 8 axes** in the latest **Chro
 
 # Running the demo locally
 
-`elm reactor` and then open http://localhost:8000/index.html
+1. Compile with `elm make Main.elm --output assets/elm.js`
+2. Start a server, e.g. `python -m SimpleHTTPServer`
+3. Open in the browser.
 
 # License
 

@@ -9,10 +9,15 @@ mkdir -p gh-pages
 cp -r assets gh-pages/
 
 # compile JS using Elm
-elm make Main.elm --yes --output gh-pages/assets/elm.js
+elm make Main.elm --output gh-pages/assets/elm-temp.js
+
+# minify with uglifyjs
+uglifyjs gh-pages/assets/elm-temp.js --compress 'pure_funcs="F2,F3,F4,F5,F6,F7,F8,F9,A2,A3,A4,A5,A6,A7,A8,A9",pure_getters,keep_fargs=false,unsafe_comps,unsafe' | uglifyjs --mangle --output=gh-pages/assets/elm.js
+
+rm gh-pages/assets/elm-temp.js
 
 # move the index.html
-sed 's/\/_compile\/Main\.elm/assets\/elm\.js/g' index.html > gh-pages/index.html
+cp index.html gh-pages/index.html
 
 # configure domain
 cd gh-pages
